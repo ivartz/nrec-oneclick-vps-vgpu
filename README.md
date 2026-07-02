@@ -1,123 +1,117 @@
 # Hermes VPS — One-Click OpenStack Deployment
 
-Spins up an Ubuntu 24.04 LTS VPS on NREC OpenStack with everything pre-installed:
+Spins up an Ubuntu 24.04 LTS VPS on NREC OpenStack with GNOME desktop accessed via TurboVNC:
 
-1. GNOME desktop + RDP via xrdp
+1. GNOME desktop with Xorg (GNOME Classic) + TurboVNC
 2. NVIDIA vGPU verification (nvidia-smi)
-3. Ollama with `ornith` model
+3. Ollama with configurable model
 4. Hermes Desktop (connected to local Ollama)
-5. Obsidian with shared vault
+5. Obsidian with vault directory
 
 ## Overview
 
-Terraform + cloud-init. Single GPU-enabled VM. Ready-to-use remote workstation.
+Terraform + cloud-init. Single GPU-enabled VM. Ready-to-use remote workstation. Uses Xorg with GNOME Classic since TurboVNC does not support Wayland.
 
 ## Prerequisites
 
 - Terraform >= 1.5
 - NREC OpenStack credentials (API access)
-- Your local machine must have SSH and an RDP client (Windows App on macOS, Remmina on Linux, mstsc on Windows)
+- SSH client and VNC client (TigerVNC, RealVNC, or similar)
 
 ## File layout
 
 | File | Purpose |
 |------|---------|
 | main.tf | OpenStack resources + cloud-init wait |
-| cloud-init.yaml.tftpl | In-guest bootstrap (GNOME, Ollama, Hermes, Obsidian) |
+| cloud-init.yaml.tftpl | In-guest bootstrap (GNOME, TurboVNC, Ollama, Hermes, Obsidian) |
 | variables.tf | Input variables |
 | outputs.tf | Outputs (IPs, passwords, tunnel commands) |
 | versions.tf | Provider pinning |
 | env.sh | OpenStack credentials (source before apply) |
+| env.sh.template | Template for safe credential management |
 | terraform.tfvars | NREC-specific values |
 | terraform.tfvars.example | Example config with placeholders |
 
 ## Usage — first time
 
-1. Copy env.sh values or source it:
+1. Copy env.sh.template to env.sh and fill in real credentials:
    ```
-   source env.sh
+   cp env.sh.template env.sh
+   nano env.sh
    ```
 
 2. Review terraform.tfvars — adjust flavor, image, or model if needed.
 
 3. Initialize and apply:
    ```
+   source env.sh
    terraform init
    terraform apply
    ```
 
-4. Terraform will output:
+4. Terraform outputs:
    - VM IPv4 / IPv6
-   - Admin password (sensitive — use `-json` or `terraform output admin_password`)
+   - Admin password
    - SSH command
-   - RDP tunnel command
-   - Ollama tunnel command
 
-5. Start the RDP tunnel:
-   ```
-   <rdp_tunnel_command from output>
-   ```
+## After deployment
 
-6. Connect your RDP client to `localhost:53389`.
+### Start TurboVNC via SSH:
+```bash
+ssh -i keys/<deployment_id>.pem ubuntu@<vm_ip>
+su - ${admin_user} -c 'vncserver :1'
+```
 
-7. Log in with `hermes` / `<admin_password>`.
+### Connect VNC client via SSH tunnel:
+```bash
+ssh -L 5901:localhost:5901 -i keys/<deployment_id>.pem ubuntu@<vm_ip>
+```
+
+Connect VNC client to localhost:5901.
+Password: admin_password from terraform output.
+
+Note: TurboVNC uses Xorg with GNOME Classic (gnome-session-flashback).
 
 ## Two-user model
 
-- **ubuntu** — created by the Ubuntu cloud image; SSH keys are auto-injected via cloud-init (no OpenStack keypair).
-- **hermes** — created by cloud-init with a random password; for RDP/desktop login and console access.
+- **ubuntu** — created by Ubuntu cloud image; SSH keys auto-injected via cloud-init
+- **hermes** — created by cloud-init with random password; for desktop login
 
 ## Network
 
-- Default: NREC IPv6 network (public IPv6, private IPv4 via NAT).
-- Fallback: dualStack if your local machine has no IPv6 (public IPv4 + IPv6).
-- No floating IPs.
-- Security group: SSH-only ingress locked to your IP (/32 IPv4, /128 IPv6).
-
-## Connecting
-
-Start the RDP tunnel (from terraform output):
-```
-ssh -L 53389:localhost:3389 -i keys/hermes-<id>.pem ubuntu@<vm_ip>
-```
-
-Then connect your RDP client:
-- macOS: Windows App -> Add PC -> localhost:53389
-- Linux: Remmina -> localhost:53389
-- Windows: mstsc -> localhost:53389
-
-Ollama API (optional tunnel):
-```
-ssh -L 51434:localhost:11434 -i keys/hermes-<id>.pem ubuntu@<vm_ip>
-```
-
-## Deployment lifecycle
-
-- Fresh deploy: `terraform apply`
-- Re-run for existing: set `deployment_id` in terraform.tfvars, then `terraform apply`
-- Tear down: `terraform destroy`
+- Default: NREC IPv6 network (public IPv6, private IPv4 via NAT)
+- Fallback: dualStack if local machine has no IPv6
+- No floating IPs
+- Security group: SSH-only ingress locked to your IP (/32 IPv4, /128 IPv6)
 
 ## Notes
 
-- xrdp provides RDP for headless VMs (spawns GNOME session per connection).
-- NVIDIA vGPU driver is pre-installed in the NREC image; cloud-init verifies with `nvidia-smi`.
-- Ollama runs as a systemd service, accessible at localhost:11434 inside the VM.
-- Obsidian vault at `/home/hermes/Documents/ObsidianVault`.
-- Terraform waits for cloud-init to finish via `null_resource` (checks `/var/lib/cloud/instance/boot-finished`), then prints all outputs.
+- TurboVNC replaces GNOME Remote Desktop (which requires initial login)
+- TurboVNC must be started manually after SSH login (headless limitation)
+- TurboVNC server continues running until explicitly stopped
+- NVIDIA vGPU driver is pre-installed in NREC image; cloud-init verifies with nvidia-smi
+- Ollama runs as systemd service at localhost:11434
+- Obsidian vault at /home/<admin_user>/Documents/ObsidianVault
+- Terraform waits for cloud-init via /var/lib/cloud/instance/boot-finished
 
 ## Smoke test (after apply)
 
 ```bash
-ssh -i keys/hermes-<id>.pem ubuntu@<ip>
+ssh -i keys/<deployment_id>.pem ubuntu@<ip>
 ```
 
-Then verify inside the VM:
+Verify inside VM:
 ```bash
-nvidia-smi                           # should show L40S-24Q
-curl http://localhost:11434/api/tags # should show ornith
-hermes version                       # should show v0.18.0+
-dpkg -l obsidian                     # should show v1.7.7
-systemctl is-active xrdp             # should show active
+nvidia-smi                              # should show GPU info
+curl http://localhost:11434/api/tags   # should show model list
+hermes version                          # should show version
+dpkg -l obsidian                        # should show 1.7.7
+vncserver :1                            # should start TurboVNC
+```
+
+Stop TurboVNC session:
+```bash
+vncserver -kill :1
 ```
 
 ## Tear down
@@ -126,4 +120,4 @@ systemctl is-active xrdp             # should show active
 terraform destroy
 ```
 
-Removes the VM, security group, keypair, and all supporting resources.
+Removes VM, security group, keypair, all supporting resources.

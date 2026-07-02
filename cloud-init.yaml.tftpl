@@ -1,5 +1,5 @@
 #cloud-config
-# Hermes VPS bootstrap - Ubuntu 24.04 LTS + NVIDIA vGPU, xrdp GNOME, Ollama, Hermes Desktop, Obsidian
+# Hermes VPS bootstrap - Ubuntu 24.04 LTS + NVIDIA vGPU, TurboVNC, Ollama, Hermes, Obsidian
 # This is a Terraform template; dollar-brace placeholders are filled at apply time.
 
 package_update: true
@@ -26,141 +26,86 @@ chpasswd:
 
 write_files:
 
-  # Desktop + xrdp installation script
+  # Desktop + TurboVNC installation
   - path: /usr/local/lib/hermes-vps/01-desktop.sh
     permissions: '0755'
     content: |
       #!/bin/bash
       set -euo pipefail
       export DEBIAN_FRONTEND=noninteractive
-      exec > >(tee /var/log/hermes-vps/01-desktop.log) 2>&1
+      exec > /var/log/hermes-vps/01-desktop.log 2>&1
 
-      echo "== Installing desktop packages =="
       apt-get update -qq
-      apt-get install -y -o DPkg::Lock::Timeout=300 \
-        ubuntu-desktop-minimal gnome-shell \
-        gnome-terminal gnome-calculator \
-        gnome-system-monitor nautilus \
-        ubuntu-settings gnome-control-center \
-        libgl1-mesa-dri || true
+      apt-get install -y ubuntu-desktop-minimal turbovnc-server gnome-session-flashback
 
-      echo "== Configuring GNOME Remote Desktop (Wayland native) =="
-      # Install GNOME Remote Desktop for Wayland-based RDP
-      apt-get install -y -o DPkg::Lock::Timeout=300 gnome-remote-desktop || true
+      mkdir -p /home/${admin_user}/.vnc
+      echo "${admin_password}" | vncpasswd -f > /home/${admin_user}/.vnc/passwd
+      chmod 600 /home/${admin_user}/.vnc/passwd
+      chown -R ${admin_user}:${admin_user} /home/${admin_user}/.vnc
       
-      # Enable and start the service
-      systemctl enable gnome-remote-desktop || true
-      systemctl start gnome-remote-desktop || true
-      
-      # Configure RDP port
-      gsettings set org.gnome.desktop.remote-desktop.rdp port 3389 || true
-      
-      echo "== Setting up user for remote desktop =="
-      # Enable remote desktop for the admin user
-      for user_home in /home/${admin_user} /home/ubuntu; do
-        if [ -d "$user_home" ]; then
-          USERNAME=$(basename "$user_home")
-          sudo -u "$USERNAME" dbus-launch gsettings set org.gnome.desktop.remote-desktop.rdp enable true || true
-          sudo -u "$USERNAME" dbus-launch gsettings set org.gnome.desktop.remote-desktop view-only false || true
-        fi
-      done
+      # Configure xstartup for GNOME Classic/Xorg
+      cat > /home/${admin_user}/.vnc/xstartup << 'EOF'
+#!/bin/sh
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+export TVNC_USERDBUS=1
+[ -x /etc/vnc/xstartup ] && exec /etc/vnc/xstartup
+[ -r $HOME/.Xresources ] && xrdb $HOME/.Xresources
+vncconfig -iconic &
+dbus-launch --exit-with-session gnome-session --session=gnome-flashback-metacity &
+EOF
+      chmod +x /home/${admin_user}/.vnc/xstartup
+      chown ${admin_user}:${admin_user} /home/${admin_user}/.vnc/xstartup
 
-      echo "== Verifying NVIDIA vGPU =="
-      if nvidia-smi >/dev/null 2>&1; then
-        echo "NVIDIA vGPU OK"
-        nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
-      else
-        echo "WARNING: nvidia-smi not found"
-      fi
+      # Verify vGPU if NVIDIA available
+      nvidia-smi > /dev/null 2>&1 && nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
 
-      echo "== Desktop installation complete =="
-
-  # Ollama installation script
+  # Ollama installation
   - path: /usr/local/lib/hermes-vps/02-ollama.sh
     permissions: '0755'
     content: |
       #!/bin/bash
       set -euo pipefail
       export DEBIAN_FRONTEND=noninteractive
-      exec > >(tee /var/log/hermes-vps/02-ollama.log) 2>&1
+      exec > /var/log/hermes-vps/02-ollama.log 2>&1
 
-      echo "== Installing Ollama =="
       curl -fsSL https://ollama.com/install.sh | sh
+      systemctl enable --now ollama
 
-      echo "== Starting Ollama =="
-      systemctl enable ollama || true
-      systemctl start ollama || true
-
-      echo "== Waiting for Ollama API to be ready =="
       for i in $(seq 1 60); do
-        if curl -s http://localhost:11434 2>/dev/null | grep -q "Ollama is running"; then
-          echo "Ollama API ready (attempt $i)"
-          sleep 2
-          break
-        fi
+        curl -s http://localhost:11434 > /dev/null 2>&1 && break
         sleep 1
       done
 
-      echo "== Pulling model ${ollama_model} =="
-      export HOME=/root
-      export OLLAMA_HOST=localhost:11434
-      if ollama pull ${ollama_model} 2>&1 | tee /var/log/hermes-vps/02-ollama-pull.log; then
-        echo "Model ${ollama_model} pulled OK"
-      else
-        echo "WARNING: Model pull failed, will try again later"
-      fi
+      export HOME=/root OLLAMA_HOST=localhost:11434
+      ollama pull ${ollama_model} 2>&1 | tee /var/log/hermes-vps/02-ollama-pull.log || true
+      unset HOME OLLAMA_HOST
 
-      unset HOME
-      unset OLLAMA_HOST
-
-      systemctl restart ollama || true
-      echo "== Ollama installation complete =="
-
-  # Hermes Desktop installation script
+  # Hermes Desktop installation
   - path: /usr/local/lib/hermes-vps/03-hermes.sh
     permissions: '0755'
     content: |
       #!/bin/bash
       set -euo pipefail
-      export DEBIAN_FRONTEND=noninteractive
-      exec > >(tee /var/log/hermes-vps/03-hermes.log) 2>&1
+      exec > /var/log/hermes-vps/03-hermes.log 2>&1
+      curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh
 
-      echo "== Installing Hermes Desktop =="
-      curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
-
-      echo "== Hermes Desktop version =="
-      which hermes && hermes version 2>/dev/null || echo "hermes binary not in PATH yet"
-      echo "== Hermes Desktop installation complete =="
-
-  # Obsidian installation script
+  # Obsidian installation
   - path: /usr/local/lib/hermes-vps/04-obsidian.sh
     permissions: '0755'
     content: |
       #!/bin/bash
       set -euo pipefail
-      export DEBIAN_FRONTEND=noninteractive
-      exec > >(tee /var/log/hermes-vps/04-obsidian.log) 2>&1
+      exec > /var/log/hermes-vps/04-obsidian.log 2>&1
 
-      echo "== Downloading Obsidian =="
       OBS_URL="${obsidian_deb_url}"
-      
-      if curl -fsSL "$OBS_URL" -o /tmp/obsidian.deb 2>&1; then
-        echo "Primary URL OK"
-      else
-        echo "Primary URL failed, trying fallback..."
-        # Always works - tagged releases
+      curl -fsSL "$OBS_URL" -o /tmp/obsidian.deb || \
         curl -fsSL "https://github.com/obsidianmd/obsidian-releases/releases/download/v1.7.7/obsidian_1.7.7_amd64.deb" -o /tmp/obsidian.deb
-      fi
 
-      echo "== Installing Obsidian =="
       apt-get install -y /tmp/obsidian.deb
       rm -f /tmp/obsidian.deb
-
-      echo "== Creating vault directory =="
       mkdir -p /home/${admin_user}/Documents/ObsidianVault
       chown -R ${admin_user}:${admin_user} /home/${admin_user}/Documents/ObsidianVault
-
-      echo "== Obsidian installation complete =="
 
 runcmd:
   - mkdir -p /var/log/hermes-vps
@@ -172,8 +117,8 @@ runcmd:
 final_message: |
   Hermes VPS bootstrap complete.
   Logs: /var/log/hermes-vps/
-  RDP: ssh -L 53389:localhost:3389 -i <private_key> ubuntu@<vm_ip>
-  Use GNOME Remote Desktop for Wayland-based RDP
-  Login: ${admin_user} / <password from terraform output>
+  TurboVNC: manually start with 'vncserver :1' after SSH login
+  Connect: ssh -L 5901:localhost:5901 -i <private_key> ubuntu@<vm_ip>, then vncviewer localhost:5901
+  VNC Password: ${admin_password}
   Ollama API: http://localhost:11434
   Obsidian vault: /home/${admin_user}/Documents/ObsidianVault
