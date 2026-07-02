@@ -35,53 +35,35 @@ write_files:
       export DEBIAN_FRONTEND=noninteractive
       exec > >(tee /var/log/hermes-vps/01-desktop.log) 2>&1
 
-      echo "== Preventing snap installation of firefox =="
-      mkdir -p /etc/apt/preferences.d
-      cat << 'NOSNAP' > /etc/apt/preferences.d/firefox
-      Package: firefox*
-      Pin: release o=*
-      Pin-Priority: -1
-      NOSNAP
-
-      echo "== Installing GNOME desktop (lightweight) =="
+      echo "== Installing desktop packages =="
       apt-get update -qq
-      # Install GNOME without snap-based firefox
       apt-get install -y -o DPkg::Lock::Timeout=300 \
-        gnome-shell gnome-session gdm3 gnome-terminal \
-        gnome-calculator gnome-system-monitor \
-        nautilus ubuntu-settings \
-        gnome-control-center gnome-keyring \
-        libgl1-mesa-dri xserver-xorg-video-all || true
+        ubuntu-desktop-minimal gnome-shell \
+        gnome-terminal gnome-calculator \
+        gnome-system-monitor nautilus \
+        ubuntu-settings gnome-control-center \
+        libgl1-mesa-dri || true
 
-      echo "== Installing xrdp for headless RDP =="
-      apt-get install -y -o DPkg::Lock::Timeout=300 xrdp xorgxrdp || true
-
-      echo "== Configuring xrdp for GNOME session =="
-      cp /etc/xrdp/startwm.sh /etc/xrdp/startwm.sh.bak
-      cat << 'XRDP_EOF' > /etc/xrdp/startwm.sh
-      #!/bin/bash
-      unset DBUS_SESSION_BUS_ADDRESS
-      unset XDG_RUNTIME_DIR
-      export GNOME_SHELL_SESSION_MODE=ubuntu
-      echo "gnome-session --session=ubuntu" > ~/.xsession
-      exec gnome-session --session=ubuntu
-      XRDP_EOF
-      chmod +x /etc/xrdp/startwm.sh
-
-      echo "== Configuring polkit for xrdp =="
-      mkdir -p /etc/polkit-1/localauthority/50-local.d/
-      cat << 'POLKIT_EOF' > /etc/polkit-1/localauthority/50-local.d/xrdp.pkla
-      [xrdp-policy]
-      Identity=unix-user:*
-      Action=org.freedesktop.color-manager.create-device;org.freedesktop.color-manager.create-profile;org.freedesktop.color-manager.delete-device;org.freedesktop.color-manager.delete-profile;org.freedesktop.color-manager.modify-device;org.freedesktop.color-manager.modify-profile;org.freedesktop.login1.power-off;org.freedesktop.login1.reboot;org.freedesktop.login1.suspend;org.freedesktop.login1.hibernate
-      ResultAny=yes
-      ResultInactive=yes
-      ResultActive=yes
-      POLKIT_EOF
-
-      echo "== Enabling xrdp =="
-      systemctl enable xrdp || true
-      systemctl restart xrdp || true
+      echo "== Configuring GNOME Remote Desktop (Wayland native) =="
+      # Install GNOME Remote Desktop for Wayland-based RDP
+      apt-get install -y -o DPkg::Lock::Timeout=300 gnome-remote-desktop || true
+      
+      # Enable and start the service
+      systemctl enable gnome-remote-desktop || true
+      systemctl start gnome-remote-desktop || true
+      
+      # Configure RDP port
+      gsettings set org.gnome.desktop.remote-desktop.rdp port 3389 || true
+      
+      echo "== Setting up user for remote desktop =="
+      # Enable remote desktop for the admin user
+      for user_home in /home/${admin_user} /home/ubuntu; do
+        if [ -d "$user_home" ]; then
+          USERNAME=$(basename "$user_home")
+          sudo -u "$USERNAME" dbus-launch gsettings set org.gnome.desktop.remote-desktop.rdp enable true || true
+          sudo -u "$USERNAME" dbus-launch gsettings set org.gnome.desktop.remote-desktop view-only false || true
+        fi
+      done
 
       echo "== Verifying NVIDIA vGPU =="
       if nvidia-smi >/dev/null 2>&1; then
@@ -191,6 +173,7 @@ final_message: |
   Hermes VPS bootstrap complete.
   Logs: /var/log/hermes-vps/
   RDP: ssh -L 53389:localhost:3389 -i <private_key> ubuntu@<vm_ip>
+  Use GNOME Remote Desktop for Wayland-based RDP
   Login: ${admin_user} / <password from terraform output>
   Ollama API: http://localhost:11434
   Obsidian vault: /home/${admin_user}/Documents/ObsidianVault
