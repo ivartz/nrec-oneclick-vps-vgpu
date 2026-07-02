@@ -1,0 +1,196 @@
+#cloud-config
+# Hermes VPS bootstrap - Ubuntu 24.04 LTS + NVIDIA vGPU, xrdp GNOME, Ollama, Hermes Desktop, Obsidian
+# This is a Terraform template; dollar-brace placeholders are filled at apply time.
+
+package_update: true
+package_upgrade: false
+
+users:
+  - name: ${admin_user}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: render, video, sudo
+    shell: /bin/bash
+    lock_passwd: false
+
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: sudo
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - ${ssh_public_key}
+
+chpasswd:
+  expire: false
+  list: |
+    ${admin_user}:${admin_password}
+
+write_files:
+
+  # Desktop + xrdp installation script
+  - path: /usr/local/lib/hermes-vps/01-desktop.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      exec > >(tee /var/log/hermes-vps/01-desktop.log) 2>&1
+
+      echo "== Preventing snap installation of firefox =="
+      mkdir -p /etc/apt/preferences.d
+      cat << 'NOSNAP' > /etc/apt/preferences.d/firefox
+      Package: firefox*
+      Pin: release o=*
+      Pin-Priority: -1
+      NOSNAP
+
+      echo "== Installing GNOME desktop (lightweight) =="
+      apt-get update -qq
+      # Install GNOME without snap-based firefox
+      apt-get install -y -o DPkg::Lock::Timeout=300 \
+        gnome-shell gnome-session gdm3 gnome-terminal \
+        gnome-calculator gnome-system-monitor \
+        nautilus ubuntu-settings \
+        gnome-control-center gnome-keyring \
+        libgl1-mesa-dri xserver-xorg-video-all || true
+
+      echo "== Installing xrdp for headless RDP =="
+      apt-get install -y -o DPkg::Lock::Timeout=300 xrdp xorgxrdp || true
+
+      echo "== Configuring xrdp for GNOME session =="
+      cp /etc/xrdp/startwm.sh /etc/xrdp/startwm.sh.bak
+      cat << 'XRDP_EOF' > /etc/xrdp/startwm.sh
+      #!/bin/bash
+      unset DBUS_SESSION_BUS_ADDRESS
+      unset XDG_RUNTIME_DIR
+      export GNOME_SHELL_SESSION_MODE=ubuntu
+      echo "gnome-session --session=ubuntu" > ~/.xsession
+      exec gnome-session --session=ubuntu
+      XRDP_EOF
+      chmod +x /etc/xrdp/startwm.sh
+
+      echo "== Configuring polkit for xrdp =="
+      mkdir -p /etc/polkit-1/localauthority/50-local.d/
+      cat << 'POLKIT_EOF' > /etc/polkit-1/localauthority/50-local.d/xrdp.pkla
+      [xrdp-policy]
+      Identity=unix-user:*
+      Action=org.freedesktop.color-manager.create-device;org.freedesktop.color-manager.create-profile;org.freedesktop.color-manager.delete-device;org.freedesktop.color-manager.delete-profile;org.freedesktop.color-manager.modify-device;org.freedesktop.color-manager.modify-profile;org.freedesktop.login1.power-off;org.freedesktop.login1.reboot;org.freedesktop.login1.suspend;org.freedesktop.login1.hibernate
+      ResultAny=yes
+      ResultInactive=yes
+      ResultActive=yes
+      POLKIT_EOF
+
+      echo "== Enabling xrdp =="
+      systemctl enable xrdp || true
+      systemctl restart xrdp || true
+
+      echo "== Verifying NVIDIA vGPU =="
+      if nvidia-smi >/dev/null 2>&1; then
+        echo "NVIDIA vGPU OK"
+        nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+      else
+        echo "WARNING: nvidia-smi not found"
+      fi
+
+      echo "== Desktop installation complete =="
+
+  # Ollama installation script
+  - path: /usr/local/lib/hermes-vps/02-ollama.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      exec > >(tee /var/log/hermes-vps/02-ollama.log) 2>&1
+
+      echo "== Installing Ollama =="
+      curl -fsSL https://ollama.com/install.sh | sh
+
+      echo "== Starting Ollama =="
+      systemctl enable ollama || true
+      systemctl start ollama || true
+
+      echo "== Waiting for Ollama API to be ready =="
+      for i in $(seq 1 60); do
+        if curl -s http://localhost:11434 2>/dev/null | grep -q "Ollama is running"; then
+          echo "Ollama API ready (attempt $i)"
+          sleep 2
+          break
+        fi
+        sleep 1
+      done
+
+      echo "== Pulling model ${ollama_model} =="
+      export HOME=/root
+      export OLLAMA_HOST=localhost:11434
+      if ollama pull ${ollama_model} 2>&1 | tee /var/log/hermes-vps/02-ollama-pull.log; then
+        echo "Model ${ollama_model} pulled OK"
+      else
+        echo "WARNING: Model pull failed, will try again later"
+      fi
+
+      unset HOME
+      unset OLLAMA_HOST
+
+      systemctl restart ollama || true
+      echo "== Ollama installation complete =="
+
+  # Hermes Desktop installation script
+  - path: /usr/local/lib/hermes-vps/03-hermes.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      exec > >(tee /var/log/hermes-vps/03-hermes.log) 2>&1
+
+      echo "== Installing Hermes Desktop =="
+      curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+
+      echo "== Hermes Desktop version =="
+      which hermes && hermes version 2>/dev/null || echo "hermes binary not in PATH yet"
+      echo "== Hermes Desktop installation complete =="
+
+  # Obsidian installation script
+  - path: /usr/local/lib/hermes-vps/04-obsidian.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      exec > >(tee /var/log/hermes-vps/04-obsidian.log) 2>&1
+
+      echo "== Downloading Obsidian =="
+      OBS_URL="${obsidian_deb_url}"
+      
+      if curl -fsSL "$OBS_URL" -o /tmp/obsidian.deb 2>&1; then
+        echo "Primary URL OK"
+      else
+        echo "Primary URL failed, trying fallback..."
+        # Always works - tagged releases
+        curl -fsSL "https://github.com/obsidianmd/obsidian-releases/releases/download/v1.7.7/obsidian_1.7.7_amd64.deb" -o /tmp/obsidian.deb
+      fi
+
+      echo "== Installing Obsidian =="
+      apt-get install -y /tmp/obsidian.deb
+      rm -f /tmp/obsidian.deb
+
+      echo "== Creating vault directory =="
+      mkdir -p /home/${admin_user}/Documents/ObsidianVault
+      chown -R ${admin_user}:${admin_user} /home/${admin_user}/Documents/ObsidianVault
+
+      echo "== Obsidian installation complete =="
+
+runcmd:
+  - mkdir -p /var/log/hermes-vps
+  - bash /usr/local/lib/hermes-vps/01-desktop.sh
+  - bash /usr/local/lib/hermes-vps/02-ollama.sh
+  - bash /usr/local/lib/hermes-vps/03-hermes.sh
+  - bash /usr/local/lib/hermes-vps/04-obsidian.sh
+
+final_message: |
+  Hermes VPS bootstrap complete.
+  Logs: /var/log/hermes-vps/
+  RDP: ssh -L 53389:localhost:3389 -i <private_key> ubuntu@<vm_ip>
+  Login: ${admin_user} / <password from terraform output>
+  Ollama API: http://localhost:11434
+  Obsidian vault: /home/${admin_user}/Documents/ObsidianVault

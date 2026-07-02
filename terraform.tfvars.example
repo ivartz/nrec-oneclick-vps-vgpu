@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars and adjust.
+# OpenStack credentials go in env.sh (source it before apply):
+#   source env.sh
+
+flavor_name   = "gr1.L40S.24g.4xlarge"
+image_name    = "vGPU Ubuntu 24.04 LTS"
+
+admin_user    = "hermes"
+ssh_user      = "ubuntu"
+
+ollama_model  = "ornith"
+
+local_rdp_port    = 53389
+local_ollama_port = 51434

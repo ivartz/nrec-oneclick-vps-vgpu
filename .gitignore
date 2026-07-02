@@ -1,0 +1,26 @@
+# Local Terraform state and plugins
+.terraform/
+.terraform.*
+*.tfstate
+*.tfstate.*
+
+# Local configuration (contains actual values, not examples)
+terraform.tfvars
+.env
+
+# Credentials
+*.pem
+keys/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# Credential files
+env.sh
+env.ps1
+
+# Local provider mirror
+.terraform-mirror/
