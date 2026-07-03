@@ -1,3 +1,8 @@
+variable "insecure" {
+  type    = bool
+  default = false
+}
+
 variable "deployment_id" {
   type    = string
   default = ""

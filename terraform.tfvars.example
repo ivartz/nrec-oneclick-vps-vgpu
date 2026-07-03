@@ -12,3 +12,6 @@ ollama_model  = "ornith"
 
 local_vnc_port    = 55901
 local_ollama_port = 51434
+
+# Set insecure = true on Termux/Android (Go netgo can't find system CAs)
+insecure        = false

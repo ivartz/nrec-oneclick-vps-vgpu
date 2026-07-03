@@ -9,6 +9,9 @@ OPERATOR_IP=$(curl -s --max-time 5 https://api.ipify.org 2>/dev/null || echo "")
 
 DEPLOYMENT_ID="hermes-$(head -c 6 /dev/urandom | od -An -tx1 | tr -d ' \n' | head -c 6)"
 
+INSECURE=false
+[ -d /data/data/com.termux ] && INSECURE=true
+
 cat > terraform.tfvars << EOF
 flavor_name          = "gr1.L40S.24g.4xlarge"
 image_name           = "vGPU Ubuntu 24.04 LTS"
@@ -20,6 +23,7 @@ local_ollama_port    = 51434
 operator_public_ip   = "${OPERATOR_IP}"
 operator_public_ipv6 = ""
 deployment_id        = "${DEPLOYMENT_ID}"
+insecure             = ${INSECURE}
 EOF
 
 echo "Deploying ${DEPLOYMENT_ID}..."

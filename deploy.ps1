@@ -25,6 +25,7 @@ operator_public_ipv6 = ""
 "@
 $deploymentId = "hermes-$(-join ((48..57) + (97..122) | Get-Random -Count 6 | ForEach-Object { [char]$_ }))"
 $tfvars += "`ndeployment_id        = `"$deploymentId`""
+$tfvars += "`ninsecure             = false"
 Set-Content -Path (Join-Path $PSScriptRoot "terraform.tfvars") -Value $tfvars -Encoding UTF8
 Write-Host "Deploying $deploymentId..."
 

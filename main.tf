@@ -1,5 +1,5 @@
 provider "openstack" {
-  insecure = true
+  insecure = var.insecure
 }
 
 resource "random_string" "suffix" {
