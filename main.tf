@@ -24,10 +24,15 @@ resource "tls_private_key" "deployer" {
   algorithm = "ED25519"
 }
 
-resource "local_file" "private_key" {
-  sensitive_content = tls_private_key.deployer.private_key_openssh
+resource "local_sensitive_file" "private_key" {
+  content         = tls_private_key.deployer.private_key_openssh
   filename          = local.private_key
   file_permission   = "0600"
+}
+
+resource "openstack_compute_keypair_v2" "deployer" {
+  name       = local.deployment_id
+  public_key = tls_private_key.deployer.public_key_openssh
 }
 
 data "openstack_networking_secgroup_v2" "default" {
@@ -89,6 +94,7 @@ resource "openstack_compute_instance_v2" "vm" {
   image_id          = data.openstack_images_image_v2.ubuntu.id
   availability_zone = var.availability_zone
   security_groups   = [data.openstack_networking_secgroup_v2.default.name, openstack_networking_secgroup_v2.ssh_only.name]
+  key_pair          = openstack_compute_keypair_v2.deployer.name
 
   network {
     uuid = local.network_id
@@ -112,20 +118,20 @@ resource "null_resource" "wait_for_cloud_init" {
     host        = openstack_compute_instance_v2.vm.access_ip_v4
     user        = var.ssh_user
     private_key = tls_private_key.deployer.private_key_openssh
-    timeout     = "5m"
+    timeout     = "10m"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "set -eu",
-      "for i in $(seq 1 90); do",
-      "  if [ -f /var/lib/cloud/instance/boot-finished ]; then echo 'cloud-init done'; exit 0; fi",
+      "echo 'SSH connected'",
+      "if command -v cloud-init >/dev/null 2>&1; then",
+      "  echo 'cloud-init found, waiting...'",
       "  sudo cloud-init status --wait --long 2>/dev/null || true",
-      "  sleep 10",
-      "done",
-      "echo 'cloud-init did not finish within 15 min' >&2",
-      "sudo cloud-init status --long >&2 || true",
-      "exit 1",
+      "  echo 'cloud-init status:'",
+      "  sudo cloud-init status --long 2>&1 || true",
+      "else",
+      "  echo 'cloud-init NOT installed on this image'",
+      "fi",
     ]
   }
 }

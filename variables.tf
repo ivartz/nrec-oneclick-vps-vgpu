@@ -45,7 +45,7 @@ variable "ollama_model" {
 
 variable "obsidian_deb_url" {
   type    = string
-  default = "https://github.com/obsidianmd/obsidian-releases/releases/latest/download/Obsidian_1.7.5_amd64.deb"
+  default = "https://github.com/obsidianmd/obsidian-releases/releases/download/v1.12.7/obsidian_1.12.7_amd64.deb"
 }
 
 variable "local_vnc_port" {
