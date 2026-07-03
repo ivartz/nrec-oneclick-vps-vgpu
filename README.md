@@ -12,7 +12,7 @@ Ubuntu 24.04 LTS VPS on NREC OpenStack with GNOME desktop (TurboVNC), NVIDIA vGP
 
 ```bash
 cp env.sh.template env.sh   # fill in credentials
-bash deploy.sh               # Linux, macOS, Termux
+bash deploy.sh              # Linux, macOS, Termux
 ```
 
 Windows: `powershell -ExecutionPolicy Bypass -File deploy.ps1`
