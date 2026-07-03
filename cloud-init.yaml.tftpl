@@ -53,6 +53,7 @@ write_files:
       dpkg -i /tmp/turbovnc.deb || apt-get install -f -y
       rm -f /tmp/turbovnc.deb
       export PATH=/opt/TurboVNC/bin:$PATH
+      echo 'export PATH=/opt/TurboVNC/bin:$PATH' > /etc/profile.d/turbovnc.sh
 
       mkdir -p /home/${admin_user}/.vnc
       echo "${admin_password}" | vncpasswd -f > /home/${admin_user}/.vnc/passwd
@@ -62,6 +63,8 @@ write_files:
       cp /usr/local/lib/hermes-vps/xstartup /home/${admin_user}/.vnc/xstartup
       chmod +x /home/${admin_user}/.vnc/xstartup
       chown ${admin_user}:${admin_user} /home/${admin_user}/.vnc/xstartup
+      mkdir -p /etc/turbovncserver.conf.d
+      echo '$tvncUserDBus = 1;' > /etc/turbovncserver.conf.d/00-hermes.conf
 
       nvidia-smi > /dev/null 2>&1 && nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
 
@@ -70,13 +73,8 @@ write_files:
     content: |
       #!/bin/sh
       export PATH=/opt/TurboVNC/bin:$PATH
-      unset SESSION_MANAGER
-      unset DBUS_SESSION_BUS_ADDRESS
-      export TVNC_USERDBUS=1
-      [ -x /etc/vnc/xstartup ] && exec /etc/vnc/xstartup
-      [ -r $HOME/.Xresources ] && xrdb $HOME/.Xresources
-      vncconfig -iconic &
-      dbus-launch --exit-with-session gnome-session --session=gnome-flashback-metacity &
+      export TVNC_WM=gnome-flashback-metacity
+      exec /opt/TurboVNC/bin/xstartup.turbovnc
 
   - path: /usr/local/lib/hermes-vps/02-ollama.sh
     permissions: '0755'
