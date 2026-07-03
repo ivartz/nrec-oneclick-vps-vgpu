@@ -58,7 +58,7 @@ data "openstack_networking_secgroup_v2" "default" {
 
 resource "openstack_networking_secgroup_v2" "ssh_only" {
   name        = "${local.deployment_id}-ssh"
-  description = "SSH-only ingress. RDP and Ollama are reached over an SSH tunnel."
+  description = "SSH-only ingress. VNC and Ollama are reached over an SSH tunnel."
 }
 
 resource "openstack_networking_secgroup_rule_v2" "ssh" {

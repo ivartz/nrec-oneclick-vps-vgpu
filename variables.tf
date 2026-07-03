@@ -33,7 +33,7 @@ variable "ssh_user" {
 variable "admin_user" {
   type        = string
   default     = "hermes"
-  description = "Cloud-init created user for RDP/desktop login."
+  description = "Cloud-init created user for VNC/desktop login."
 }
 
 variable "ollama_model" {
@@ -47,10 +47,10 @@ variable "obsidian_deb_url" {
   description = "Direct .deb URL for Obsidian."
 }
 
-variable "local_rdp_port" {
+variable "local_vnc_port" {
   type        = number
-  default     = 53389
-  description = "Local port that forwards to RDP (3389) on the VM via SSH tunnel."
+  default     = 5901
+  description = "Local port that forwards to VNC (5901) on the VM via SSH tunnel."
 }
 
 variable "local_ollama_port" {

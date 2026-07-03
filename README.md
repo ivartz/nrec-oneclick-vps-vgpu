@@ -31,6 +31,10 @@ Terraform + cloud-init. Single GPU-enabled VM. Ready-to-use remote workstation. 
 | env.sh.template | Template for safe credential management |
 | terraform.tfvars | NREC-specific values |
 | terraform.tfvars.example | Example config with placeholders |
+| deploy.sh | One-click deploy script (Linux, macOS, Termux) |
+| deploy.ps1 | One-click deploy script (Windows PowerShell) |
+| https_proxy.py | Termux DNS workaround proxy (auto-started by deploy.sh) |
+| .terraformrc | Offline provider mirror config (Termux) |
 
 ## Usage — first time
 
@@ -53,6 +57,31 @@ Terraform + cloud-init. Single GPU-enabled VM. Ready-to-use remote workstation. 
    - VM IPv4 / IPv6
    - Admin password
    - SSH command
+
+## One-click deploy scripts
+
+Instead of running terraform manually, use the deploy scripts which handle credentials, tfvars generation, and platform-specific setup:
+
+- **Linux / macOS:** `bash deploy.sh`
+- **Windows PowerShell:** `powershell -ExecutionPolicy Bypass -File deploy.ps1`
+
+The scripts auto-detect your public IP, generate a random deployment ID, write terraform.tfvars, and run init + apply.
+
+## Termux / Android
+
+Terraform on Termux has two quirks that prevent direct operation; `deploy.sh` handles both automatically:
+
+1. **DNS resolution fails.** Terraform is built with Go's `netgo` resolver, which reads `/etc/resolv.conf`. On Android, `/etc` is a read-only symlink to `/system/etc` with no `resolv.conf`, so every DNS lookup fails. `deploy.sh` starts `https_proxy.py` — a local HTTPS CONNECT proxy that resolves DNS via Python's libc resolver (which works on Termux) — and routes terraform through it via `HTTP_PROXY`/`HTTPS_PROXY` on `127.0.0.1:9080`.
+
+2. **No registry access.** Termux cannot reach `registry.terraform.io` for provider downloads. The `.terraformrc` file points to a local mirror (`.terraform-mirror/`) containing all required providers. `deploy.sh` sets `TF_CLI_CONFIG_FILE` to use it. On other platforms, if the mirror path doesn't exist, the scripts fall back to downloading from the registry.
+
+To deploy from Termux:
+
+```bash
+bash deploy.sh
+```
+
+No manual proxy setup or environment variables needed — the script detects Termux and configures everything.
 
 ## After deployment
 

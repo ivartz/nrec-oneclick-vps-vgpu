@@ -10,11 +10,11 @@
 #
 # What it does:
 #   - Provisions an Ubuntu 24.04 VM with NVIDIA vGPU
-#   - Installs GNOME + gnome-remote-desktop (Wayland RDP)
+#   - Installs GNOME + TurboVNC (Xorg VNC)
 #   - Installs Ollama + nemotron-mini model
 #   - Installs Hermes Desktop
 #   - Installs Obsidian with shared vault
-#   - Outputs SSH, RDP, and Ollama tunnel commands
+#   - Outputs SSH, VNC, and Ollama tunnel commands
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference    = "SilentlyContinue"
@@ -64,7 +64,7 @@ image_name           = "vGPU Ubuntu 24.04 LTS"
 admin_user           = "hermes"
 ssh_user             = "ubuntu"
 ollama_model         = "ornith"
-local_rdp_port       = 53389
+local_vnc_port       = 5901
 local_ollama_port    = 51434
 operator_public_ip   = "$operatorIp"
 operator_public_ipv6 = ""
@@ -87,6 +87,26 @@ Write-Host "  Deploying $deploymentId" -ForegroundColor Green
 Write-Host "========================================`n" -ForegroundColor Green
 
 Set-Location $PSScriptRoot
+
+# ---------------------------------------------------------------------------
+# Offline provider mirror (optional)
+# On Windows, Go DNS resolves natively — no HTTPS proxy needed (unlike
+# Termux/Android). TF_CLI_CONFIG_FILE is only set if .terraformrc exists AND
+# its mirror path is valid; otherwise terraform downloads from the registry.
+# ---------------------------------------------------------------------------
+$tfrc = Join-Path $PSScriptRoot ".terraformrc"
+if (Test-Path $tfrc) {
+    $mirrorLine = (Get-Content $tfrc | Where-Object { $_ -match '^\s*path\s*=' })
+    if ($mirrorLine -match '"([^"]+)"') {
+        $mirrorPath = $Matches[1]
+        if (Test-Path $mirrorPath) {
+            $env:TF_CLI_CONFIG_FILE = $tfrc
+            Write-Host "Using offline provider mirror: $mirrorPath" -ForegroundColor Cyan
+        } else {
+            Write-Host "Note: .terraformrc mirror path not found ($mirrorPath) — downloading providers from registry" -ForegroundColor Yellow
+        }
+    }
+}
 
 Write-Host "[1/3] terraform init..." -ForegroundColor Yellow
 terraform init -input=false
@@ -118,7 +138,7 @@ Write-Host "========================================`n" -ForegroundColor Green
 
 $vmIp      = (terraform output -raw vm_ipv4 2>$null)
 $sshCmd    = (terraform output -raw ssh_command 2>$null)
-$rdpCmd    = (terraform output -raw rdp_tunnel_command 2>$null)
+$vncCmd    = (terraform output -raw vnc_tunnel_command 2>$null)
 $ollamaCmd = (terraform output -raw ollama_tunnel_command 2>$null)
 $adminUser = (terraform output -raw admin_user 2>$null)
 $adminPwd  = (terraform output -raw admin_password 2>$null)
@@ -132,8 +152,8 @@ Write-Host ""
 Write-Host "--- SSH ---" -ForegroundColor Cyan
 Write-Host $sshCmd
 Write-Host ""
-Write-Host "--- RDP tunnel (START FIRST, then connect to localhost:53389) ---" -ForegroundColor Cyan
-Write-Host $rdpCmd
+Write-Host "--- VNC tunnel (START FIRST, then connect VNC client to localhost:5901) ---" -ForegroundColor Cyan
+Write-Host $vncCmd
 Write-Host ""
 Write-Host "--- Ollama tunnel ---" -ForegroundColor Cyan
 Write-Host $ollamaCmd
@@ -142,7 +162,7 @@ Write-Host "--- Verify services (after SSH) ---" -ForegroundColor Cyan
 Write-Host "  cloud-init status --long"
 Write-Host "  nvidia-smi"
 Write-Host "  systemctl is-active ollama"
-Write-Host "  systemctl is-active gnome-remote-desktop"
+Write-Host "  vncserver :1                              # start TurboVNC manually"
 Write-Host ""
 Write-Host "--- Destroy ---" -ForegroundColor Yellow
 Write-Host "  powershell -ExecutionPolicy Bypass -File deploy.ps1 -Destroy"

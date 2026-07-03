@@ -29,8 +29,8 @@ output "ssh_command" {
   value = "ssh -i ${local.private_key} ${var.ssh_user}@${openstack_compute_instance_v2.vm.access_ip_v4}"
 }
 
-output "rdp_tunnel_command" {
-  value = "ssh -L ${var.local_rdp_port}:localhost:3389 -i ${local.private_key} ${var.ssh_user}@${openstack_compute_instance_v2.vm.access_ip_v4}"
+output "vnc_tunnel_command" {
+  value = "ssh -L ${var.local_vnc_port}:localhost:5901 -i ${local.private_key} ${var.ssh_user}@${openstack_compute_instance_v2.vm.access_ip_v4}"
 }
 
 output "ollama_tunnel_command" {

@@ -10,5 +10,5 @@ ssh_user      = "ubuntu"
 
 ollama_model  = "ornith"
 
-local_rdp_port    = 53389
+local_vnc_port    = 5901
 local_ollama_port = 51434

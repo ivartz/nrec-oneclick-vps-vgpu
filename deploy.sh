@@ -33,7 +33,7 @@ image_name           = "vGPU Ubuntu 24.04 LTS"
 admin_user           = "hermes"
 ssh_user             = "ubuntu"
 ollama_model         = "ornith"
-local_rdp_port       = 53389
+local_vnc_port       = 5901
 local_ollama_port    = 51434
 operator_public_ip   = "${OPERATOR_IP}"
 operator_public_ipv6 = ""
@@ -46,6 +46,36 @@ echo "========================================"
 echo "  Deploying ${DEPLOYMENT_ID}"
 echo "========================================"
 echo ""
+
+# --- Termux/Android DNS workaround ---
+# Go binaries (terraform) can't resolve DNS on Termux: /etc is a read-only
+# symlink to /system/etc with no resolv.conf, so Go's netgo resolver falls
+# back to [::1]:53 (no server) and every NREC API call fails. A local HTTPS
+# CONNECT proxy (https_proxy.py) resolves via Python's libc resolver (which
+# works on Termux) and tunnels the bytes. Skipped on non-Termux platforms.
+if [ -d /data/data/com.termux ]; then
+    export TF_CLI_CONFIG_FILE="$SCRIPT_DIR/.terraformrc"
+    PROXY_PORT=9080
+    if curl -s --max-time 1 -o /dev/null "http://127.0.0.1:${PROXY_PORT}/" 2>/dev/null; then
+        echo "Termux: HTTPS proxy already running on :${PROXY_PORT}"
+    elif [ -f "$SCRIPT_DIR/https_proxy.py" ]; then
+        python3 "$SCRIPT_DIR/https_proxy.py" >/dev/null 2>&1 &
+        for _ in $(seq 1 10); do
+            curl -s --max-time 1 -o /dev/null "http://127.0.0.1:${PROXY_PORT}/" 2>/dev/null && break
+            sleep 0.3
+        done
+        if ! curl -s --max-time 1 -o /dev/null "http://127.0.0.1:${PROXY_PORT}/" 2>/dev/null; then
+            echo "ERROR: HTTPS proxy failed to start on :${PROXY_PORT}" >&2
+            exit 1
+        fi
+        echo "Termux: started HTTPS proxy on :${PROXY_PORT} (DNS workaround)"
+    else
+        echo "ERROR: https_proxy.py not found" >&2
+        exit 1
+    fi
+    export HTTP_PROXY="http://127.0.0.1:${PROXY_PORT}"
+    export HTTPS_PROXY="http://127.0.0.1:${PROXY_PORT}"
+fi
 
 echo "[1/3] terraform init..."
 terraform init -input=false
@@ -77,8 +107,8 @@ echo ""
 echo "--- SSH ---"
 echo "ssh -i ${KEY_PATH} ubuntu@${VM_IP}"
 echo ""
-echo "--- RDP tunnel (START FIRST, then connect to localhost:53389) ---"
-echo "ssh -L 53389:localhost:3389 -N -i ${KEY_PATH} ubuntu@${VM_IP}"
+echo "--- VNC tunnel (START FIRST, then connect VNC client to localhost:5901) ---"
+echo "ssh -L 5901:localhost:5901 -N -i ${KEY_PATH} ubuntu@${VM_IP}"
 echo ""
 echo "--- Ollama tunnel ---"
 echo "ssh -L 51434:localhost:11434 -N -i ${KEY_PATH} ubuntu@${VM_IP}"
@@ -87,4 +117,4 @@ echo "--- Verify services (after SSH) ---"
 echo "  cloud-init status --long"
 echo "  nvidia-smi"
 echo "  systemctl is-active ollama"
-echo "  systemctl is-active gnome-remote-desktop"
+echo "  vncserver :1                              # start TurboVNC manually"
