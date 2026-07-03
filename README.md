@@ -93,10 +93,10 @@ su - ${admin_user} -c 'vncserver :1'
 
 ### Connect VNC client via SSH tunnel:
 ```bash
-ssh -L 5901:localhost:5901 -i keys/<deployment_id>.pem ubuntu@<vm_ip>
+ssh -L 55901:localhost:5901 -i keys/<deployment_id>.pem ubuntu@<vm_ip>
 ```
 
-Connect VNC client to localhost:5901.
+Connect VNC client to localhost:55901.
 Password: admin_password from terraform output.
 
 Note: TurboVNC uses Xorg with GNOME Classic (gnome-session-flashback).

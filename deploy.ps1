@@ -64,7 +64,7 @@ image_name           = "vGPU Ubuntu 24.04 LTS"
 admin_user           = "hermes"
 ssh_user             = "ubuntu"
 ollama_model         = "ornith"
-local_vnc_port       = 5901
+local_vnc_port       = 55901
 local_ollama_port    = 51434
 operator_public_ip   = "$operatorIp"
 operator_public_ipv6 = ""
@@ -152,7 +152,7 @@ Write-Host ""
 Write-Host "--- SSH ---" -ForegroundColor Cyan
 Write-Host $sshCmd
 Write-Host ""
-Write-Host "--- VNC tunnel (START FIRST, then connect VNC client to localhost:5901) ---" -ForegroundColor Cyan
+Write-Host "--- VNC tunnel (START FIRST, then connect VNC client to localhost:55901) ---" -ForegroundColor Cyan
 Write-Host $vncCmd
 Write-Host ""
 Write-Host "--- Ollama tunnel ---" -ForegroundColor Cyan

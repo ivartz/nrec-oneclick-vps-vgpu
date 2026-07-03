@@ -49,7 +49,7 @@ variable "obsidian_deb_url" {
 
 variable "local_vnc_port" {
   type        = number
-  default     = 5901
+  default     = 55901
   description = "Local port that forwards to VNC (5901) on the VM via SSH tunnel."
 }
 
