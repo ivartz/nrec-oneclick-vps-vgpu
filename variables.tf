@@ -1,7 +1,6 @@
 variable "deployment_id" {
-  type        = string
-  default     = ""
-  description = "Set to an existing deployment name to re-run; leave empty for a fresh random suffix."
+  type    = string
+  default = ""
 }
 
 variable "keys_dir" {
@@ -25,15 +24,13 @@ variable "availability_zone" {
 }
 
 variable "ssh_user" {
-  type        = string
-  default     = "ubuntu"
-  description = "Cloud image default user; receives the OpenStack-injected keypair."
+  type    = string
+  default = "ubuntu"
 }
 
 variable "admin_user" {
-  type        = string
-  default     = "hermes"
-  description = "Cloud-init created user for VNC/desktop login."
+  type    = string
+  default = "hermes"
 }
 
 variable "ollama_model" {
@@ -42,35 +39,26 @@ variable "ollama_model" {
 }
 
 variable "obsidian_deb_url" {
-  type        = string
-  default     = "https://github.com/obsidianmd/obsidian-releases/releases/latest/download/Obsidian_1.7.5_amd64.deb"
-  description = "Direct .deb URL for Obsidian."
+  type    = string
+  default = "https://github.com/obsidianmd/obsidian-releases/releases/latest/download/Obsidian_1.7.5_amd64.deb"
 }
 
 variable "local_vnc_port" {
-  type        = number
-  default     = 55901
-  description = "Local port that forwards to VNC (5901) on the VM via SSH tunnel."
+  type    = number
+  default = 55901
 }
 
 variable "local_ollama_port" {
-  type        = number
-  default     = 51434
-  description = "Local port that forwards to Ollama (11434) on the VM via SSH tunnel."
+  type    = number
+  default = 51434
 }
 
-###############################################################################
-# Operator IP — resolved automatically by run.sh, or set manually here
-###############################################################################
-
 variable "operator_public_ip" {
-  description = "Your public IPv4 address (used to restrict SSH security group). Set to '' to allow from anywhere."
-  type        = string
-  default     = ""
+  type    = string
+  default = ""
 }
 
 variable "operator_public_ipv6" {
-  description = "Your public IPv6 address (used to restrict SSH security group). Set to '' if you have no IPv6."
-  type        = string
-  default     = ""
+  type    = string
+  default = ""
 }

@@ -1,12 +1,6 @@
-# Provider — reads OS_* env vars from env.sh (source before apply)
 provider "openstack" {
   insecure = true
 }
-
-###############################################################################
-# Per-run identifier — either user-provided or fresh random suffix.
-# Set var.deployment_id to an existing value to re-run for that deployment.
-###############################################################################
 
 resource "random_string" "suffix" {
   count   = var.deployment_id == "" ? 1 : 0
@@ -17,14 +11,14 @@ resource "random_string" "suffix" {
 }
 
 locals {
-  deployment_id = var.deployment_id != "" ? var.deployment_id : "hermes-${random_string.suffix[0].result}"
-  private_key   = "${path.module}/${var.keys_dir}/${local.deployment_id}.pem"
+  deployment_id       = var.deployment_id != "" ? var.deployment_id : "hermes-${random_string.suffix[0].result}"
+  private_key         = "${path.module}/${var.keys_dir}/${local.deployment_id}.pem"
+  operator_cidr       = var.operator_public_ip != "" ? "${var.operator_public_ip}/32" : "0.0.0.0/0"
+  has_ipv6            = var.operator_public_ipv6 != ""
+  operator_ipv6_cidr  = var.operator_public_ipv6 != "" ? "${var.operator_public_ipv6}/128" : ""
+  use_dualstack       = !local.has_ipv6
+  network_id          = local.use_dualstack ? data.openstack_networking_network_v2.dualstack.id : data.openstack_networking_network_v2.ipv6.id
 }
-
-###############################################################################
-# 1. ed25519 keypair — generated locally, public key injected via cloud-init
-#    (NO OpenStack keypair import; avoids keypair-name mismatch bugs)
-###############################################################################
 
 resource "tls_private_key" "deployer" {
   algorithm = "ED25519"
@@ -36,29 +30,13 @@ resource "local_file" "private_key" {
   file_permission   = "0600"
 }
 
-###############################################################################
-# 2. Operator public IP — discovered at apply time.
-###############################################################################
-
-locals {
-  operator_public_ip   = var.operator_public_ip
-  operator_cidr        = var.operator_public_ip != "" ? "${var.operator_public_ip}/32" : "0.0.0.0/0"
-  operator_public_ipv6 = var.operator_public_ipv6
-  operator_ipv6_cidr   = var.operator_public_ipv6 != "" ? "${var.operator_public_ipv6}/128" : ""
-  has_ipv6             = var.operator_public_ipv6 != ""
-}
-
-###############################################################################
-# 3. Security group — custom SSH-only + project "default" attached to VM
-###############################################################################
-
 data "openstack_networking_secgroup_v2" "default" {
   name = "default"
 }
 
 resource "openstack_networking_secgroup_v2" "ssh_only" {
   name        = "${local.deployment_id}-ssh"
-  description = "SSH-only ingress. VNC and Ollama are reached over an SSH tunnel."
+  description = "SSH-only ingress. VNC and Ollama via SSH tunnel."
 }
 
 resource "openstack_networking_secgroup_rule_v2" "ssh" {
@@ -82,10 +60,6 @@ resource "openstack_networking_secgroup_rule_v2" "ssh_v6" {
   security_group_id = openstack_networking_secgroup_v2.ssh_only.id
 }
 
-###############################################################################
-# 4. Look up existing infrastructure — NREC IPv6 + dualStack networks
-###############################################################################
-
 data "openstack_networking_network_v2" "ipv6" {
   name = "IPv6"
 }
@@ -103,30 +77,11 @@ data "openstack_images_image_v2" "ubuntu" {
   most_recent = true
 }
 
-###############################################################################
-# 5. Network selection for the instance
-#    - Default: IPv6 (public IPv6 only, private IPv4 via NAT)
-#    - Fallback: dualStack when operator host has no IPv6 connectivity
-###############################################################################
-
-locals {
-  use_dualstack = !local.has_ipv6
-  network_id    = local.use_dualstack ? data.openstack_networking_network_v2.dualstack.id : data.openstack_networking_network_v2.ipv6.id
-}
-
-###############################################################################
-# 6. Admin password (auto-generated; printed by outputs)
-###############################################################################
-
 resource "random_password" "admin" {
   length           = 24
   special          = true
   override_special = "!@#%^*()-_=+"
 }
-
-###############################################################################
-# 7. Instance — NO OpenStack keypair; SSH key injected via cloud-init
-###############################################################################
 
 resource "openstack_compute_instance_v2" "vm" {
   name              = local.deployment_id
@@ -148,16 +103,9 @@ resource "openstack_compute_instance_v2" "vm" {
   })
 }
 
-###############################################################################
-# 8. Wait for cloud-init to finish (uses the auto-generated ed25519 key)
-###############################################################################
-
 resource "null_resource" "wait_for_cloud_init" {
   depends_on = [openstack_compute_instance_v2.vm]
-
-  triggers = {
-    instance_id = openstack_compute_instance_v2.vm.id
-  }
+  triggers = { instance_id = openstack_compute_instance_v2.vm.id }
 
   connection {
     type        = "ssh"

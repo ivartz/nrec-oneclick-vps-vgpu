@@ -1,6 +1,4 @@
 #cloud-config
-# Hermes VPS bootstrap - Ubuntu 24.04 LTS + NVIDIA vGPU, TurboVNC, Ollama, Hermes, Obsidian
-# This is a Terraform template; dollar-brace placeholders are filled at apply time.
 
 package_update: true
 package_upgrade: false
@@ -26,7 +24,6 @@ chpasswd:
 
 write_files:
 
-  # Desktop + TurboVNC installation
   - path: /usr/local/lib/hermes-vps/01-desktop.sh
     permissions: '0755'
     content: |
@@ -42,8 +39,7 @@ write_files:
       echo "${admin_password}" | vncpasswd -f > /home/${admin_user}/.vnc/passwd
       chmod 600 /home/${admin_user}/.vnc/passwd
       chown -R ${admin_user}:${admin_user} /home/${admin_user}/.vnc
-      
-      # Configure xstartup for GNOME Classic/Xorg
+
       cat > /home/${admin_user}/.vnc/xstartup << 'EOF'
 #!/bin/sh
 unset SESSION_MANAGER
@@ -57,10 +53,8 @@ EOF
       chmod +x /home/${admin_user}/.vnc/xstartup
       chown ${admin_user}:${admin_user} /home/${admin_user}/.vnc/xstartup
 
-      # Verify vGPU if NVIDIA available
       nvidia-smi > /dev/null 2>&1 && nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
 
-  # Ollama installation
   - path: /usr/local/lib/hermes-vps/02-ollama.sh
     permissions: '0755'
     content: |
@@ -79,9 +73,7 @@ EOF
 
       export HOME=/root OLLAMA_HOST=localhost:11434
       ollama pull ${ollama_model} 2>&1 | tee /var/log/hermes-vps/02-ollama-pull.log || true
-      unset HOME OLLAMA_HOST
 
-  # Hermes Desktop installation
   - path: /usr/local/lib/hermes-vps/03-hermes.sh
     permissions: '0755'
     content: |
@@ -90,7 +82,6 @@ EOF
       exec > /var/log/hermes-vps/03-hermes.log 2>&1
       curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh
 
-  # Obsidian installation
   - path: /usr/local/lib/hermes-vps/04-obsidian.sh
     permissions: '0755'
     content: |
@@ -98,10 +89,7 @@ EOF
       set -euo pipefail
       exec > /var/log/hermes-vps/04-obsidian.log 2>&1
 
-      OBS_URL="${obsidian_deb_url}"
-      curl -fsSL "$OBS_URL" -o /tmp/obsidian.deb || \
-        curl -fsSL "https://github.com/obsidianmd/obsidian-releases/releases/download/v1.7.7/obsidian_1.7.7_amd64.deb" -o /tmp/obsidian.deb
-
+      curl -fsSL "${obsidian_deb_url}" -o /tmp/obsidian.deb
       apt-get install -y /tmp/obsidian.deb
       rm -f /tmp/obsidian.deb
       mkdir -p /home/${admin_user}/Documents/ObsidianVault
@@ -115,10 +103,6 @@ runcmd:
   - bash /usr/local/lib/hermes-vps/04-obsidian.sh
 
 final_message: |
-  Hermes VPS bootstrap complete.
-  Logs: /var/log/hermes-vps/
-  TurboVNC: manually start with 'vncserver :1' after SSH login
-  Connect: ssh -L 55901:localhost:5901 -i <private_key> ubuntu@<vm_ip>, then vncviewer localhost:55901
-  VNC Password: ${admin_password}
-  Ollama API: http://localhost:11434
-  Obsidian vault: /home/${admin_user}/Documents/ObsidianVault
+  Hermes VPS ready. Start VNC: vncserver :1
+  Connect: ssh -L 55901:localhost:5901 -i <key> ubuntu@<ip>, then vncviewer localhost:55901
+  VNC password: ${admin_password}

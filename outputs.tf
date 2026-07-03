@@ -3,13 +3,11 @@ output "deployment_id" {
 }
 
 output "vm_ipv4" {
-  value       = openstack_compute_instance_v2.vm.access_ip_v4
-  description = "VM IPv4. On IPv6 network this is private (NAT); on dualStack it is public."
+  value = openstack_compute_instance_v2.vm.access_ip_v4
 }
 
 output "vm_ipv6" {
-  value       = openstack_compute_instance_v2.vm.access_ip_v6
-  description = "VM public IPv6."
+  value = openstack_compute_instance_v2.vm.access_ip_v6
 }
 
 output "admin_user" {
