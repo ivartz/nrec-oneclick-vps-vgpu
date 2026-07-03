@@ -13,6 +13,7 @@ resource "random_string" "suffix" {
 locals {
   deployment_id       = var.deployment_id != "" ? var.deployment_id : "hermes-${random_string.suffix[0].result}"
   private_key         = "${path.module}/${var.keys_dir}/${local.deployment_id}.pem"
+  vnc_password_file   = "${path.module}/${var.keys_dir}/${local.deployment_id}.vncpass"
   operator_cidr       = var.operator_public_ip != "" ? "${var.operator_public_ip}/32" : "0.0.0.0/0"
   has_ipv6            = var.operator_public_ipv6 != ""
   operator_ipv6_cidr  = var.operator_public_ipv6 != "" ? "${var.operator_public_ipv6}/128" : ""
@@ -28,6 +29,12 @@ resource "local_sensitive_file" "private_key" {
   content         = tls_private_key.deployer.private_key_openssh
   filename          = local.private_key
   file_permission   = "0600"
+}
+
+resource "local_sensitive_file" "vnc_password" {
+  content         = random_password.admin.result
+  filename        = local.vnc_password_file
+  file_permission = "0600"
 }
 
 resource "openstack_compute_keypair_v2" "deployer" {

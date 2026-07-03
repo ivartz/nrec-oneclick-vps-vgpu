@@ -23,6 +23,10 @@ output "private_key_path" {
   value = local.private_key
 }
 
+output "vnc_password_path" {
+  value = local.vnc_password_file
+}
+
 output "ssh_command" {
   value = "ssh -i ${local.private_key} ${var.ssh_user}@${openstack_compute_instance_v2.vm.access_ip_v4}"
 }

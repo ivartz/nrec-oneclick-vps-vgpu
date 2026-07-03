@@ -24,3 +24,4 @@ env.ps1
 
 # Local provider mirror
 .terraform-mirror/
+*.vncpass

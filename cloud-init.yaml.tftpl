@@ -1,6 +1,6 @@
 #cloud-config
 
-package_update: true
+package_update: false
 package_upgrade: false
 
 users:
@@ -32,10 +32,24 @@ write_files:
       #!/bin/bash
       set -euo pipefail
       export DEBIAN_FRONTEND=noninteractive
+      export HOME=/root
       exec > /var/log/hermes-vps/01-desktop.log 2>&1
 
       apt-get update -qq
-      apt-get install -y ubuntu-desktop-minimal tigervnc-standalone-server gnome-session-flashback
+      export NEEDRESTART_MODE=l
+      mkdir -p /etc/apt/preferences.d
+      printf 'Package: firefox*\nPin: release o=*\nPin-Priority: -1\n' > /etc/apt/preferences.d/firefox
+      apt-get install -y gnome-shell gnome-session gdm3 gnome-terminal \
+        nautilus gnome-control-center gnome-keyring \
+        libgl1-mesa-dri xserver-xorg-video-all gnome-session-flashback \
+        ripgrep ffmpeg
+      systemctl disable --now snapd 2>/dev/null || true
+      systemctl disable --now NetworkManager-wait-online 2>/dev/null || true
+      systemctl disable --now ModemManager 2>/dev/null || true
+      curl -fsSL https://github.com/TurboVNC/turbovnc/releases/download/3.3/turbovnc_3.3_amd64.deb -o /tmp/turbovnc.deb
+      dpkg -i /tmp/turbovnc.deb || apt-get install -f -y
+      rm -f /tmp/turbovnc.deb
+      export PATH=/opt/TurboVNC/bin:$PATH
 
       mkdir -p /home/${admin_user}/.vnc
       echo "${admin_password}" | vncpasswd -f > /home/${admin_user}/.vnc/passwd
@@ -52,6 +66,7 @@ write_files:
     permissions: '0755'
     content: |
       #!/bin/sh
+      export PATH=/opt/TurboVNC/bin:$PATH
       unset SESSION_MANAGER
       unset DBUS_SESSION_BUS_ADDRESS
       export TVNC_USERDBUS=1
@@ -84,6 +99,7 @@ write_files:
     content: |
       #!/bin/bash
       set -euo pipefail
+      export HOME=/root
       exec > /var/log/hermes-vps/03-hermes.log 2>&1
       curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 
@@ -92,6 +108,7 @@ write_files:
     content: |
       #!/bin/bash
       set -euo pipefail
+      export HOME=/root
       exec > /var/log/hermes-vps/04-obsidian.log 2>&1
 
       curl -fsSL "${obsidian_deb_url}" -o /tmp/obsidian.deb
@@ -102,6 +119,9 @@ write_files:
 
 runcmd:
   - mkdir -p /var/log/hermes-vps
+  - systemctl stop unattended-upgrades 2>/dev/null || true
+  - systemctl mask sssd 2>/dev/null || true
+  - systemctl mask gnome-remote-desktop 2>/dev/null || true
   - bash /usr/local/lib/hermes-vps/01-desktop.sh
   - bash /usr/local/lib/hermes-vps/02-ollama.sh
   - bash /usr/local/lib/hermes-vps/03-hermes.sh

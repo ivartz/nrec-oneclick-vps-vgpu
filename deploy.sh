@@ -41,6 +41,7 @@ echo ""
 echo "VM IP: $(terraform output -raw vm_ipv4)"
 echo "Key:   $(terraform output -raw private_key_path)"
 echo "Pass:  $(terraform output -raw admin_password)"
+echo "VNC:   $(terraform output -raw vnc_password_path)"
 echo ""
 terraform output -raw vnc_tunnel_command
 terraform output -raw ollama_tunnel_command
