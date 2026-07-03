@@ -42,7 +42,10 @@ write_files:
       apt-get install -y gnome-shell gnome-session gdm3 gnome-terminal \
         nautilus gnome-control-center gnome-keyring \
         libgl1-mesa-dri xserver-xorg-video-all gnome-session-flashback \
-        ripgrep ffmpeg
+        ripgrep ffmpeg xvfb fonts-liberation fonts-noto-color-emoji \
+        libnss3 libnspr4 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 \
+        libdrm2 libgbm1 libxkbcommon0 libxcomposite1 libxdamage1 \
+        libxrandr2 libxfixes3 libxext6 libasound2t64
       systemctl disable --now snapd 2>/dev/null || true
       systemctl disable --now NetworkManager-wait-online 2>/dev/null || true
       systemctl disable --now ModemManager 2>/dev/null || true
@@ -123,9 +126,8 @@ runcmd:
   - systemctl mask sssd 2>/dev/null || true
   - systemctl mask gnome-remote-desktop 2>/dev/null || true
   - bash /usr/local/lib/hermes-vps/01-desktop.sh
-  - bash /usr/local/lib/hermes-vps/02-ollama.sh
-  - bash /usr/local/lib/hermes-vps/03-hermes.sh
   - bash /usr/local/lib/hermes-vps/04-obsidian.sh
+  - bash /usr/local/lib/hermes-vps/02-ollama.sh & bash /usr/local/lib/hermes-vps/03-hermes.sh & wait
 
 final_message: |
   Hermes VPS ready. Start VNC: vncserver :1
