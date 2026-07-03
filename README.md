@@ -1,6 +1,6 @@
 # Hermes VPS — One-Click OpenStack Deployment
 
-Ubuntu 24.04 LTS VPS on NREC OpenStack with GNOME desktop (TurboVNC), NVIDIA vGPU, Ollama, Hermes Desktop, and Obsidian. Terraform + cloud-init only.
+Ubuntu 24.04 LTS VPS on NREC OpenStack with GNOME Flashback desktop (TurboVNC), NVIDIA vGPU, Ollama, Hermes Desktop, and Obsidian. Terraform + cloud-init only.
 
 ## Prerequisites
 
@@ -23,21 +23,24 @@ Termux: `deploy.sh` auto-starts `https_proxy.py` (DNS workaround) and uses the o
 
 ```bash
 ssh -i keys/<id>.pem ubuntu@<ip>
-su - hermes -c 'vncserver :1'
+sudo -u hermes /opt/TurboVNC/bin/vncserver :1
 ```
 
 Connect VNC via tunnel:
 ```bash
 ssh -L 55901:localhost:5901 -i keys/<id>.pem ubuntu@<ip>
-# vncviewer localhost:55901  (password: terraform output admin_password)
+# vncviewer localhost:55901
 ```
+
+VNC password: `cat keys/<id>.vncpass`
+Admin password: `cat /home/hermes/.admin-password` (on the VM)
 
 ## Verify
 
 ```bash
 nvidia-smi
 curl http://localhost:11434/api/tags
-vncserver :1
+/opt/TurboVNC/bin/vncserver :1   # as hermes user
 ```
 
 ## Network

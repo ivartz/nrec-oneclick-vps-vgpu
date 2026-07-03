@@ -76,7 +76,6 @@ write_files:
       echo '${admin_password}' > /home/${admin_user}/.admin-password
       chown ${admin_user}:${admin_user} /home/${admin_user}/.admin-password
       chmod 600 /home/${admin_user}/.admin-password
-      chmod 600 /home/ubuntu/.vnc-passwd
 
       nvidia-smi > /dev/null 2>&1 && nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
 

@@ -40,7 +40,7 @@ variable "admin_user" {
 
 variable "ollama_model" {
   type    = string
-  default = "north-mini-code"
+  default = "ornith"
 }
 
 variable "obsidian_deb_url" {
