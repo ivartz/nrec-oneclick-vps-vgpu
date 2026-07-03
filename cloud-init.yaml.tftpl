@@ -66,6 +66,10 @@ write_files:
       mkdir -p /etc/turbovncserver.conf.d
       echo '$tvncUserDBus = 1;' > /etc/turbovncserver.conf.d/00-hermes.conf
 
+      cp /home/${admin_user}/.vnc/passwd /home/ubuntu/.vnc-passwd
+      chown ubuntu:ubuntu /home/ubuntu/.vnc-passwd
+      chmod 600 /home/ubuntu/.vnc-passwd
+
       nvidia-smi > /dev/null 2>&1 && nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
 
   - path: /usr/local/lib/hermes-vps/xstartup
