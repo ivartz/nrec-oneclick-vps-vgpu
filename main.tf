@@ -130,15 +130,8 @@ resource "null_resource" "wait_for_cloud_init" {
 
   provisioner "remote-exec" {
     inline = [
-      "echo 'SSH connected'",
-      "if command -v cloud-init >/dev/null 2>&1; then",
-      "  echo 'cloud-init found, waiting...'",
-      "  sudo cloud-init status --wait --long 2>/dev/null || true",
-      "  echo 'cloud-init status:'",
-      "  sudo cloud-init status --long 2>&1 || true",
-      "else",
-      "  echo 'cloud-init NOT installed on this image'",
-      "fi",
+      "sudo cloud-init status --wait --long 2>/dev/null || true",
+      "sudo cloud-init status --long 2>&1 || true",
     ]
   }
 }

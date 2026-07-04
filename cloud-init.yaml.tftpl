@@ -44,13 +44,9 @@ write_files:
         libgl1-mesa-dri xserver-xorg-video-all gnome-session-flashback \
         gnome-calculator gnome-system-monitor gnome-disk-utility \
         eog evince gnome-text-editor baobab gnome-logs gnome-screenshot \
-        gnome-shell-extension-desktop-icons-ng dmz-cursor-theme \
+        dmz-cursor-theme \
         ripgrep ffmpeg feh xvfb dbus-x11 \
-        fonts-liberation fonts-noto-color-emoji \
-        fonts-ubuntu fonts-ubuntu-console \
-        libnss3 libnspr4 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 \
-        libdrm2 libgbm1 libxkbcommon0 libxcomposite1 libxdamage1 \
-        libxrandr2 libxfixes3 libxext6 libasound2t64
+        fonts-liberation fonts-noto-color-emoji fonts-ubuntu
       systemctl disable --now snapd 2>/dev/null || true
       systemctl disable --now NetworkManager-wait-online 2>/dev/null || true
       systemctl disable --now ModemManager 2>/dev/null || true
@@ -87,25 +83,17 @@ write_files:
     permissions: '0755'
     content: |
       #!/bin/bash
-      set -euo pipefail
       exec > /var/log/hermes-vps/05-postsession.log 2>&1
-      # Wait for gnome-session to be ready
-      for i in $(seq 1 30); do
-        pgrep -u ${admin_user} gnome-session-b > /dev/null 2>&1 && break
-        sleep 1
-      done
+      # Wait for gnome-session, then set wallpaper + start indicators
+      for i in $(seq 1 30); do pgrep -u ${admin_user} gnome-session-b > /dev/null 2>&1 && break; sleep 1; done
       sleep 5
-      # Get the D-Bus session address from the running gnome-session
       PID=$(pgrep -u ${admin_user} gnome-session-b | head -1)
-      DBUS_ADDR=$(cat /proc/$PID/environ 2>/dev/null | tr '\0' '\n' | grep '^DBUS_SESSION_BUS_ADDRESS=' | cut -d= -f2- || echo "")
-      # Set wallpaper (gnome-flashback won't start in VNC, so use feh)
-      BG=$(sudo -u ${admin_user} HOME=/home/${admin_user} gsettings get org.gnome.desktop.background picture-uri 2>/dev/null | sed "s|^'file://||; s|'$||" || echo "")
+      DBUS_ADDR=$(cat /proc/$PID/environ 2>/dev/null | tr '\0' '\n' | grep '^DBUS_SESSION_BUS_ADDRESS=' | cut -d= -f2- || true)
+      BG=$(sudo -u ${admin_user} HOME=/home/${admin_user} gsettings get org.gnome.desktop.background picture-uri 2>/dev/null | sed "s|^'file://||; s|'$||" || true)
       [ -n "$BG" ] && [ -f "$BG" ] && sudo -u ${admin_user} DISPLAY=:1 feh --bg-fill "$BG" 2>/dev/null || true
-      # Start indicator services for panel (logout, power, etc.)
       for svc in indicator-session indicator-power indicator-datetime indicator-sound indicator-messages indicator-application indicator-bluetooth; do
-        svc_path=$(ls /usr/lib/x86_64-linux-gnu/$svc/*-service 2>/dev/null | head -1 || true)
-        [ -z "$svc_path" ] && svc_path=$(ls /usr/lib/$svc/*-service 2>/dev/null | head -1 || true)
-        [ -n "$svc_path" ] && sudo -u ${admin_user} -H HOME=/home/${admin_user} DISPLAY=:1 DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" "$svc_path" 2>/dev/null &
+        p=$(ls /usr/lib/x86_64-linux-gnu/$svc/*-service 2>/dev/null | head -1 || true)
+        [ -n "$p" ] && sudo -u ${admin_user} -H HOME=/home/${admin_user} DISPLAY=:1 DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" "$p" 2>/dev/null &
       done
       wait
 
@@ -114,7 +102,6 @@ write_files:
     content: |
       #!/bin/bash
       set -euo pipefail
-      export DEBIAN_FRONTEND=noninteractive
       exec > /var/log/hermes-vps/02-ollama.log 2>&1
 
       curl -fsSL https://ollama.com/install.sh | sh
