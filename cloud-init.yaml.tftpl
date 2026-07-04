@@ -45,7 +45,7 @@ write_files:
         gnome-calculator gnome-system-monitor gnome-disk-utility \
         eog evince gnome-text-editor baobab gnome-logs gnome-screenshot \
         gnome-shell-extension-desktop-icons-ng dmz-cursor-theme \
-        ripgrep ffmpeg xvfb dbus-x11 \
+        ripgrep ffmpeg feh xvfb dbus-x11 \
         fonts-liberation fonts-noto-color-emoji \
         fonts-ubuntu fonts-ubuntu-console \
         libnss3 libnspr4 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 \
@@ -60,7 +60,6 @@ write_files:
       export PATH=/opt/TurboVNC/bin:$PATH
       echo 'export PATH=/opt/TurboVNC/bin:$PATH' > /etc/profile.d/turbovnc.sh
       loginctl enable-linger ${admin_user}
-      sed -i 's/X-GNOME-HiddenUnderSystemd=true/X-GNOME-HiddenUnderSystemd=false/' /usr/share/applications/gnome-flashback.desktop
 
       mkdir -p /home/${admin_user}/.vnc
       echo "${admin_password}" | vncpasswd -f > /home/${admin_user}/.vnc/passwd
@@ -84,17 +83,27 @@ write_files:
       $wm = "gnome-flashback-metacity";
       $userDBus = 1;
 
-  - path: /etc/xdg/autostart/gnome-flashback-force.desktop
-    permissions: '0644'
+  - path: /usr/local/lib/hermes-vps/05-postsession.sh
+    permissions: '0755'
     content: |
-      [Desktop Entry]
-      Type=Application
-      Name=GNOME Flashback (forced)
-      Exec=/usr/bin/gnome-flashback
-      OnlyShowIn=GNOME-Flashback;GNOME;
-      NoDisplay=true
-      X-GNOME-Autostart-Notify=true
-      X-GNOME-AutoRestart=false
+      #!/bin/bash
+      set -euo pipefail
+      exec > /var/log/hermes-vps/05-postsession.log 2>&1
+      # Wait for gnome-session to be ready
+      for i in $(seq 1 30); do
+        pgrep -u ${admin_user} gnome-session-b > /dev/null 2>&1 && break
+        sleep 1
+      done
+      sleep 5
+      # Set wallpaper (gnome-flashback won't start in VNC, so use feh)
+      BG=$(gsettings get org.gnome.desktop.background picture-uri 2>/dev/null | sed "s/^'file:$$/; s/'$//" || echo "")
+      [ -n "$BG" ] && [ -f "$BG" ] && sudo -u ${admin_user} DISPLAY=:1 feh --bg-fill "$BG" 2>/dev/null || true
+      # Start indicator services for panel (logout, power, etc.)
+      for svc in indicator-session indicator-power indicator-datetime indicator-sound indicator-messages indicator-application indicator-bluetooth; do
+        svc_path=$(ls /usr/lib/x86_64-linux-gnu/$svc/*-service 2>/dev/null | head -1 || ls /usr/lib/$svc/*-service 2>/dev/null | head -1 || true)
+        [ -n "$svc_path" ] && sudo -u ${admin_user} -H HOME=/home/${admin_user} DISPLAY=:1 "$svc_path" 2>/dev/null &
+      done
+      wait
 
   - path: /usr/local/lib/hermes-vps/02-ollama.sh
     permissions: '0755'
@@ -148,6 +157,7 @@ runcmd:
   - bash /usr/local/lib/hermes-vps/01-desktop.sh
   - bash /usr/local/lib/hermes-vps/04-obsidian.sh
   - bash /usr/local/lib/hermes-vps/02-ollama.sh & bash /usr/local/lib/hermes-vps/03-hermes.sh & wait
+  - bash /usr/local/lib/hermes-vps/05-postsession.sh &
 
 final_message: |
   Hermes VPS ready. Start VNC: vncserver :1
