@@ -50,6 +50,7 @@ write_files:
       systemctl disable --now snapd 2>/dev/null || true
       systemctl disable --now NetworkManager-wait-online 2>/dev/null || true
       systemctl disable --now ModemManager 2>/dev/null || true
+      chmod 000 /usr/libexec/gsd-usb-protection 2>/dev/null || true
       curl -fsSL https://github.com/TurboVNC/turbovnc/releases/download/3.3/turbovnc_3.3_amd64.deb -o /tmp/turbovnc.deb
       dpkg -i /tmp/turbovnc.deb || apt-get install -f -y
       rm -f /tmp/turbovnc.deb
