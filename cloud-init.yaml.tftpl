@@ -85,6 +85,8 @@ write_files:
       #!/bin/sh
       export PATH=/opt/TurboVNC/bin:$PATH
       export TVNC_WM=gnome-flashback-metacity
+      # Kill stale processes from previous session on this display
+      pkill -u $(id -u) indicator- 2>/dev/null || true
       # Start TurboVNC's session manager in background
       /opt/TurboVNC/bin/xstartup.turbovnc &
       XPID=$!
