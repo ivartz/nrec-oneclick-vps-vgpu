@@ -95,13 +95,17 @@ write_files:
         sleep 1
       done
       sleep 5
+      # Get the D-Bus session address from the running gnome-session
+      PID=$(pgrep -u ${admin_user} gnome-session-b | head -1)
+      DBUS_ADDR=$(cat /proc/$PID/environ 2>/dev/null | tr '\0' '\n' | grep '^DBUS_SESSION_BUS_ADDRESS=' | cut -d= -f2- || echo "")
       # Set wallpaper (gnome-flashback won't start in VNC, so use feh)
-      BG=$(gsettings get org.gnome.desktop.background picture-uri 2>/dev/null | sed "s/^'file:$$/; s/'$//" || echo "")
+      BG=$(sudo -u ${admin_user} HOME=/home/${admin_user} gsettings get org.gnome.desktop.background picture-uri 2>/dev/null | sed "s|^'file://||; s|'$||" || echo "")
       [ -n "$BG" ] && [ -f "$BG" ] && sudo -u ${admin_user} DISPLAY=:1 feh --bg-fill "$BG" 2>/dev/null || true
       # Start indicator services for panel (logout, power, etc.)
       for svc in indicator-session indicator-power indicator-datetime indicator-sound indicator-messages indicator-application indicator-bluetooth; do
-        svc_path=$(ls /usr/lib/x86_64-linux-gnu/$svc/*-service 2>/dev/null | head -1 || ls /usr/lib/$svc/*-service 2>/dev/null | head -1 || true)
-        [ -n "$svc_path" ] && sudo -u ${admin_user} -H HOME=/home/${admin_user} DISPLAY=:1 "$svc_path" 2>/dev/null &
+        svc_path=$(ls /usr/lib/x86_64-linux-gnu/$svc/*-service 2>/dev/null | head -1 || true)
+        [ -z "$svc_path" ] && svc_path=$(ls /usr/lib/$svc/*-service 2>/dev/null | head -1 || true)
+        [ -n "$svc_path" ] && sudo -u ${admin_user} -H HOME=/home/${admin_user} DISPLAY=:1 DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" "$svc_path" 2>/dev/null &
       done
       wait
 
