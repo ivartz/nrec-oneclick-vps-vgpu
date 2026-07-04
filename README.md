@@ -32,6 +32,11 @@ ssh -L 55901:localhost:5901 -i keys/<id>.pem ubuntu@<ip>
 # vncviewer localhost:55901
 ```
 
+End VNC session:
+```bash
+sudo -u hermes /opt/TurboVNC/bin/vncserver -kill :1
+```
+
 Passwords (all the same):
 - VNC password: `cat keys/<id>.vncpass` (local)
 - On VM: `cat /home/ubuntu/.vnc-passwd` or `cat /home/hermes/.admin-password`
