@@ -59,6 +59,7 @@ write_files:
       rm -f /tmp/turbovnc.deb
       export PATH=/opt/TurboVNC/bin:$PATH
       echo 'export PATH=/opt/TurboVNC/bin:$PATH' > /etc/profile.d/turbovnc.sh
+      loginctl enable-linger ${admin_user}
 
       mkdir -p /home/${admin_user}/.vnc
       echo "${admin_password}" | vncpasswd -f > /home/${admin_user}/.vnc/passwd
