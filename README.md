@@ -32,8 +32,9 @@ ssh -L 55901:localhost:5901 -i keys/<id>.pem ubuntu@<ip>
 # vncviewer localhost:55901
 ```
 
-VNC password: `cat keys/<id>.vncpass`
-Admin password: `cat /home/hermes/.admin-password` (on the VM)
+Passwords (all the same):
+- VNC password: `cat keys/<id>.vncpass` (local)
+- On VM: `cat /home/ubuntu/.vnc-passwd` or `cat /home/hermes/.admin-password`
 
 ## Verify
 

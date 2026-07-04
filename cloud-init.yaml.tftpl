@@ -65,28 +65,19 @@ write_files:
       chmod 600 /home/${admin_user}/.vnc/passwd
       chown -R ${admin_user}:${admin_user} /home/${admin_user}/.vnc
 
-      cp /usr/local/lib/hermes-vps/xstartup /home/${admin_user}/.vnc/xstartup
-      chmod +x /home/${admin_user}/.vnc/xstartup
-      chown ${admin_user}:${admin_user} /home/${admin_user}/.vnc/xstartup
-      mkdir -p /etc/turbovncserver.conf.d
-      echo '$tvncUserDBus = 1;' > /etc/turbovncserver.conf.d/00-hermes.conf
+      cat >> /etc/turbovncserver.conf << 'TVNCCONF'
+$wm = "gnome-flashback-metacity";
+$userDBus = 1;
+TVNCCONF
 
-      cp /home/${admin_user}/.vnc/passwd /home/ubuntu/.vnc-passwd
-      chown ubuntu:ubuntu /home/ubuntu/.vnc-passwd
+      echo '${admin_password}' > /home/ubuntu/.vnc-passwd
       chmod 600 /home/ubuntu/.vnc-passwd
+      chown ubuntu:ubuntu /home/ubuntu/.vnc-passwd
       echo '${admin_password}' > /home/${admin_user}/.admin-password
-      chown ${admin_user}:${admin_user} /home/${admin_user}/.admin-password
       chmod 600 /home/${admin_user}/.admin-password
+      chown ${admin_user}:${admin_user} /home/${admin_user}/.admin-password
 
       nvidia-smi > /dev/null 2>&1 && nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
-
-  - path: /usr/local/lib/hermes-vps/xstartup
-    permissions: '0755'
-    content: |
-      #!/bin/sh
-      export PATH=/opt/TurboVNC/bin:$PATH
-      export TVNC_WM=gnome-flashback-metacity
-      exec /opt/TurboVNC/bin/xstartup.turbovnc
 
   - path: /usr/local/lib/hermes-vps/02-ollama.sh
     permissions: '0755'
