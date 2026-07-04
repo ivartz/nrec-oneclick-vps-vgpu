@@ -110,6 +110,7 @@ write_files:
       sudo -u ${admin_user} -H HOME=/home/${admin_user} bash -c 'curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash'
       CHROME=$(ls /home/${admin_user}/.cache/ms-playwright/chromium-*/chrome-linux64/chrome 2>/dev/null | head -1)
       [ -n "$CHROME" ] && ln -sf "$CHROME" /usr/local/bin/chromium
+      sudo -u ${admin_user} -H HOME=/home/${admin_user} /home/${admin_user}/.local/bin/hermes desktop --build-only 2>&1 || true
 
   - path: /usr/local/lib/hermes-vps/04-obsidian.sh
     permissions: '0755'
