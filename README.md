@@ -26,6 +26,14 @@ ssh -i keys/<id>.pem ubuntu@<ip>
 sudo -u hermes /opt/TurboVNC/bin/vncserver :1
 ```
 
+The default session is GNOME Flashback (Metacity) — a lightweight classic
+desktop. To use the modern GNOME desktop instead, pass `-wm gnome`:
+
+```bash
+sudo -u hermes /opt/TurboVNC/bin/vncserver :1 -wm gnome              # modern GNOME
+sudo -u hermes /opt/TurboVNC/bin/vncserver :1 -wm gnome-flashback-metacity  # flashback (default)
+```
+
 Connect VNC via tunnel:
 ```bash
 ssh -L 55901:localhost:5901 -i keys/<id>.pem ubuntu@<ip>
