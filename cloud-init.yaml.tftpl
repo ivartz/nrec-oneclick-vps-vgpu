@@ -76,26 +76,31 @@ write_files:
   - path: /usr/local/lib/hermes-vps/turbovncserver.conf
     permissions: '0644'
     content: |
-      $wm = "gnome-flashback-metacity";
+      $xstartup = "/usr/local/lib/hermes-vps/xstartup";
       $userDBus = 1;
 
-  - path: /usr/local/lib/hermes-vps/05-postsession.sh
+  - path: /usr/local/lib/hermes-vps/xstartup
     permissions: '0755'
     content: |
-      #!/bin/bash
-      exec > /var/log/hermes-vps/05-postsession.log 2>&1
+      #!/bin/sh
+      export PATH=/opt/TurboVNC/bin:$PATH
+      export TVNC_WM=gnome-flashback-metacity
+      # Start TurboVNC's session manager in background
+      /opt/TurboVNC/bin/xstartup.turbovnc &
+      XPID=$!
       # Wait for gnome-session, then set wallpaper + start indicators
-      for i in $(seq 1 30); do pgrep -u ${admin_user} gnome-session-b > /dev/null 2>&1 && break; sleep 1; done
-      sleep 5
-      PID=$(pgrep -u ${admin_user} gnome-session-b | head -1)
+      for i in $(seq 1 30); do pgrep -u $(id -u) gnome-session-b > /dev/null 2>&1 && break; sleep 1; done
+      sleep 3
+      PID=$(pgrep -u $(id -u) gnome-session-b | head -1)
       DBUS_ADDR=$(cat /proc/$PID/environ 2>/dev/null | tr '\0' '\n' | grep '^DBUS_SESSION_BUS_ADDRESS=' | cut -d= -f2- || true)
-      BG=$(sudo -u ${admin_user} HOME=/home/${admin_user} gsettings get org.gnome.desktop.background picture-uri 2>/dev/null | sed "s|^'file://||; s|'$||" || true)
-      [ -n "$BG" ] && [ -f "$BG" ] && sudo -u ${admin_user} DISPLAY=:1 feh --bg-fill "$BG" 2>/dev/null || true
+      BG=$(gsettings get org.gnome.desktop.background picture-uri 2>/dev/null | sed "s|^'file://||; s|'$||" || true)
+      [ -n "$BG" ] && [ -f "$BG" ] && feh --bg-fill "$BG" 2>/dev/null || true
       for svc in indicator-session indicator-power indicator-datetime indicator-sound indicator-messages indicator-application indicator-bluetooth; do
         p=$(ls /usr/lib/x86_64-linux-gnu/$svc/*-service 2>/dev/null | head -1 || true)
-        [ -n "$p" ] && sudo -u ${admin_user} -H HOME=/home/${admin_user} DISPLAY=:1 DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" "$p" 2>/dev/null &
+        [ -n "$p" ] && DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" "$p" 2>/dev/null &
       done
-      wait
+      # Wait for session to exit (keeps VNC alive)
+      wait $XPID
 
   - path: /usr/local/lib/hermes-vps/02-ollama.sh
     permissions: '0755'
@@ -148,7 +153,6 @@ runcmd:
   - bash /usr/local/lib/hermes-vps/01-desktop.sh
   - bash /usr/local/lib/hermes-vps/04-obsidian.sh
   - bash /usr/local/lib/hermes-vps/02-ollama.sh & bash /usr/local/lib/hermes-vps/03-hermes.sh & wait
-  - bash /usr/local/lib/hermes-vps/05-postsession.sh &
 
 final_message: |
   Hermes VPS ready. Start VNC: vncserver :1
