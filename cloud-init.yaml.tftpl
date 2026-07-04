@@ -55,7 +55,6 @@ write_files:
       rm -f /tmp/turbovnc.deb
       export PATH=/opt/TurboVNC/bin:$PATH
       echo 'export PATH=/opt/TurboVNC/bin:$PATH' > /etc/profile.d/turbovnc.sh
-      loginctl enable-linger ${admin_user}
 
       mkdir -p /home/${admin_user}/.vnc
       echo "${admin_password}" | vncpasswd -f > /home/${admin_user}/.vnc/passwd
@@ -76,27 +75,8 @@ write_files:
   - path: /usr/local/lib/hermes-vps/turbovncserver.conf
     permissions: '0644'
     content: |
-      $xstartup = "/usr/local/lib/hermes-vps/xstartup";
+      $wm = "gnome-flashback-metacity";
       $userDBus = 1;
-
-  - path: /usr/local/lib/hermes-vps/xstartup
-    permissions: '0755'
-    content: |
-      #!/bin/sh
-      export PATH=/opt/TurboVNC/bin:$PATH
-      export TVNC_WM=gnome-flashback-metacity
-      pkill -u $(id -u) indicator- 2>/dev/null || true
-      /opt/TurboVNC/bin/xstartup.turbovnc &
-      XPID=$!
-      for i in $(seq 1 30); do pgrep -u $(id -u) gnome-session-b > /dev/null 2>&1 && break; sleep 1; done
-      sleep 3
-      PID=$(pgrep -u $(id -u) gnome-session-b | head -1)
-      DBUS_ADDR=$(cat /proc/$PID/environ 2>/dev/null | tr '\0' '\n' | grep '^DBUS_SESSION_BUS_ADDRESS=' | cut -d= -f2- || true)
-      for svc in indicator-session indicator-power indicator-datetime indicator-sound indicator-messages indicator-application indicator-bluetooth; do
-        p=$(ls /usr/lib/x86_64-linux-gnu/$svc/*-service 2>/dev/null | head -1 || true)
-        [ -n "$p" ] && DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" "$p" 2>/dev/null &
-      done
-      wait $XPID
 
   - path: /usr/local/lib/hermes-vps/02-ollama.sh
     permissions: '0755'
