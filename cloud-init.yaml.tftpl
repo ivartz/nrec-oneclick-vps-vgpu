@@ -65,10 +65,7 @@ write_files:
       chmod 600 /home/${admin_user}/.vnc/passwd
       chown -R ${admin_user}:${admin_user} /home/${admin_user}/.vnc
 
-      cat >> /etc/turbovncserver.conf << 'TVNCCONF'
-$wm = "gnome-flashback-metacity";
-$userDBus = 1;
-TVNCCONF
+      cat /usr/local/lib/hermes-vps/turbovncserver.conf >> /etc/turbovncserver.conf
 
       echo '${admin_password}' > /home/ubuntu/.vnc-passwd
       chmod 600 /home/ubuntu/.vnc-passwd
@@ -78,6 +75,12 @@ TVNCCONF
       chown ${admin_user}:${admin_user} /home/${admin_user}/.admin-password
 
       nvidia-smi > /dev/null 2>&1 && nvidia-smi --query-gpu=name,driver_version --format=csv,noheader
+
+  - path: /usr/local/lib/hermes-vps/turbovncserver.conf
+    permissions: '0644'
+    content: |
+      $wm = "gnome-flashback-metacity";
+      $userDBus = 1;
 
   - path: /usr/local/lib/hermes-vps/02-ollama.sh
     permissions: '0755'
