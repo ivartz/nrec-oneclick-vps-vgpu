@@ -1,6 +1,6 @@
 # Hermes VPS — One-Click OpenStack Deployment
 
-Ubuntu 24.04 LTS VPS on NREC OpenStack with GNOME Flashback desktop (TurboVNC), NVIDIA vGPU, Ollama, Hermes Desktop, and Obsidian. Terraform + cloud-init only.
+Ubuntu 24.04 LTS VPS on NREC OpenStack with GNOME desktop (TurboVNC), NVIDIA vGPU, Ollama, Hermes Desktop, Chromium, and Obsidian. Terraform + cloud-init only.
 
 ## Prerequisites
 
@@ -54,7 +54,8 @@ Passwords (all the same):
 ```bash
 nvidia-smi
 curl http://localhost:11434/api/tags
-/opt/TurboVNC/bin/vncserver :1   # as hermes user
+which chromium
+hermes --version
 ```
 
 ## Network
