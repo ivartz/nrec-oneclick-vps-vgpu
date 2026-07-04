@@ -60,6 +60,7 @@ write_files:
       export PATH=/opt/TurboVNC/bin:$PATH
       echo 'export PATH=/opt/TurboVNC/bin:$PATH' > /etc/profile.d/turbovnc.sh
       loginctl enable-linger ${admin_user}
+      sed -i 's/X-GNOME-HiddenUnderSystemd=true/X-GNOME-HiddenUnderSystemd=false/' /usr/share/applications/gnome-flashback.desktop
 
       mkdir -p /home/${admin_user}/.vnc
       echo "${admin_password}" | vncpasswd -f > /home/${admin_user}/.vnc/passwd
@@ -82,6 +83,18 @@ write_files:
     content: |
       $wm = "gnome-flashback-metacity";
       $userDBus = 1;
+
+  - path: /etc/xdg/autostart/gnome-flashback-force.desktop
+    permissions: '0644'
+    content: |
+      [Desktop Entry]
+      Type=Application
+      Name=GNOME Flashback (forced)
+      Exec=/usr/bin/gnome-flashback
+      OnlyShowIn=GNOME-Flashback;GNOME;
+      NoDisplay=true
+      X-GNOME-Autostart-Notify=true
+      X-GNOME-AutoRestart=false
 
   - path: /usr/local/lib/hermes-vps/02-ollama.sh
     permissions: '0755'
