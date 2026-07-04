@@ -45,7 +45,7 @@ write_files:
         gnome-calculator gnome-system-monitor gnome-disk-utility \
         eog evince gnome-text-editor baobab gnome-logs gnome-screenshot \
         dmz-cursor-theme \
-        ripgrep ffmpeg feh xvfb dbus-x11 \
+        ripgrep ffmpeg xvfb dbus-x11 \
         fonts-liberation fonts-noto-color-emoji fonts-ubuntu
       systemctl disable --now snapd 2>/dev/null || true
       systemctl disable --now NetworkManager-wait-online 2>/dev/null || true
@@ -85,23 +85,17 @@ write_files:
       #!/bin/sh
       export PATH=/opt/TurboVNC/bin:$PATH
       export TVNC_WM=gnome-flashback-metacity
-      # Kill stale processes from previous session on this display
       pkill -u $(id -u) indicator- 2>/dev/null || true
-      # Start TurboVNC's session manager in background
       /opt/TurboVNC/bin/xstartup.turbovnc &
       XPID=$!
-      # Wait for gnome-session, then set wallpaper + start indicators
       for i in $(seq 1 30); do pgrep -u $(id -u) gnome-session-b > /dev/null 2>&1 && break; sleep 1; done
       sleep 3
       PID=$(pgrep -u $(id -u) gnome-session-b | head -1)
       DBUS_ADDR=$(cat /proc/$PID/environ 2>/dev/null | tr '\0' '\n' | grep '^DBUS_SESSION_BUS_ADDRESS=' | cut -d= -f2- || true)
-      BG=$(gsettings get org.gnome.desktop.background picture-uri 2>/dev/null | sed "s|^'file://||; s|'$||" || true)
-      [ -n "$BG" ] && [ -f "$BG" ] && feh --bg-fill "$BG" 2>/dev/null || true
       for svc in indicator-session indicator-power indicator-datetime indicator-sound indicator-messages indicator-application indicator-bluetooth; do
         p=$(ls /usr/lib/x86_64-linux-gnu/$svc/*-service 2>/dev/null | head -1 || true)
         [ -n "$p" ] && DBUS_SESSION_BUS_ADDRESS="$DBUS_ADDR" "$p" 2>/dev/null &
       done
-      # Wait for session to exit (keeps VNC alive)
       wait $XPID
 
   - path: /usr/local/lib/hermes-vps/02-ollama.sh
