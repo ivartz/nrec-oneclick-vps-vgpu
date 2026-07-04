@@ -19,6 +19,8 @@ Windows: `powershell -ExecutionPolicy Bypass -File deploy.ps1`
 
 Termux: `deploy.sh` auto-starts `https_proxy.py` (DNS workaround) and uses the offline provider mirror.
 
+Logs can found at /var/log/hermes-vps and /home/hermes/.vnc
+
 ## After deploy
 
 ```bash
