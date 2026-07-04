@@ -104,7 +104,7 @@ write_files:
       set -euo pipefail
       exec > /var/log/hermes-vps/03-hermes.log 2>&1
       sudo -u ${admin_user} -H HOME=/home/${admin_user} bash -c 'curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash'
-      CHROME=$(ls /home/${admin_user}/.cache/ms-playwright/chromium-*/chrome-linux64/chrome 2>/dev/null | head -1 || true)
+      CHROME=$(find /home/${admin_user}/.cache/ms-playwright/ -name chrome -type f -path '*/chrome-linux64/*' 2>/dev/null | head -1 || true)
       [ -n "$CHROME" ] && ln -sf "$CHROME" /usr/local/bin/chromium
       sudo -u ${admin_user} -H HOME=/home/${admin_user} PATH="/home/${admin_user}/.local/bin:$PATH" /home/${admin_user}/.local/bin/hermes desktop --build-only 2>&1 || true
 
